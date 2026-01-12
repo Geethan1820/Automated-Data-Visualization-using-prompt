@@ -1,0 +1,101 @@
+Order ID,Order Date,Ship Date,Ship Mode,Customer ID,Customer Name,Segment,Country,City,State,Region,Category,Sub-Category,Product Name,Sales,Quantity,Discount,Profit
+CA-1001,02-01-2024,04-01-2024,Second Class,C-001,Customer 1,Corporate,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 1,620,2,0.05,25
+CA-1002,03-01-2024,05-01-2024,First Class,C-002,Customer 2,Home Office,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 2,740,3,0.1,0
+CA-1003,04-01-2024,06-01-2024,Standard Class,C-003,Customer 3,Consumer,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 3,860,4,0.15,95
+CA-1004,05-01-2024,07-01-2024,Second Class,C-004,Customer 4,Corporate,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 4,980,5,0.0,70
+CA-1005,06-01-2024,08-01-2024,First Class,C-005,Customer 5,Home Office,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 5,1100,1,0.05,45
+CA-1006,07-01-2024,09-01-2024,Standard Class,C-006,Customer 6,Consumer,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 6,1220,2,0.1,140
+CA-1007,08-01-2024,10-01-2024,Second Class,C-007,Customer 7,Corporate,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 7,1340,3,0.15,115
+CA-1008,09-01-2024,11-01-2024,First Class,C-008,Customer 8,Home Office,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 8,1460,4,0.0,90
+CA-1009,10-01-2024,12-01-2024,Standard Class,C-009,Customer 9,Consumer,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 9,1580,5,0.05,185
+CA-1010,11-01-2024,13-01-2024,Second Class,C-010,Customer 10,Corporate,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 10,1700,1,0.1,160
+CA-1011,12-01-2024,14-01-2024,First Class,C-011,Customer 11,Home Office,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 11,1820,2,0.15,135
+CA-1012,13-01-2024,15-01-2024,Standard Class,C-012,Customer 12,Consumer,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 12,1940,3,0.0,230
+CA-1013,14-01-2024,16-01-2024,Second Class,C-013,Customer 13,Corporate,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 13,2060,4,0.05,205
+CA-1014,15-01-2024,17-01-2024,First Class,C-014,Customer 14,Home Office,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 14,2180,5,0.1,180
+CA-1015,16-01-2024,18-01-2024,Standard Class,C-015,Customer 15,Consumer,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 15,2300,1,0.15,275
+CA-1016,17-01-2024,19-01-2024,Second Class,C-016,Customer 16,Corporate,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 16,2420,2,0.0,250
+CA-1017,18-01-2024,20-01-2024,First Class,C-017,Customer 17,Home Office,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 17,2540,3,0.05,225
+CA-1018,19-01-2024,21-01-2024,Standard Class,C-018,Customer 18,Consumer,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 18,2660,4,0.1,320
+CA-1019,20-01-2024,22-01-2024,Second Class,C-019,Customer 19,Corporate,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 19,2780,5,0.15,295
+CA-1020,21-01-2024,23-01-2024,First Class,C-020,Customer 20,Home Office,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 20,2900,1,0.0,270
+CA-1021,22-01-2024,24-01-2024,Standard Class,C-021,Customer 21,Consumer,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 21,3020,2,0.05,365
+CA-1022,23-01-2024,25-01-2024,Second Class,C-022,Customer 22,Corporate,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 22,3140,3,0.1,340
+CA-1023,24-01-2024,26-01-2024,First Class,C-023,Customer 23,Home Office,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 23,3260,4,0.15,315
+CA-1024,25-01-2024,27-01-2024,Standard Class,C-024,Customer 24,Consumer,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 24,3380,5,0.0,410
+CA-1025,26-01-2024,28-01-2024,Second Class,C-025,Customer 25,Corporate,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 25,3500,1,0.05,385
+CA-1026,27-01-2024,29-01-2024,First Class,C-026,Customer 26,Home Office,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 26,3620,2,0.1,360
+CA-1027,28-01-2024,30-01-2024,Standard Class,C-027,Customer 27,Consumer,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 27,3740,3,0.15,455
+CA-1028,29-01-2024,31-01-2024,Second Class,C-028,Customer 28,Corporate,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 28,3860,4,0.0,430
+CA-1029,30-01-2024,01-02-2024,First Class,C-029,Customer 29,Home Office,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 29,3980,5,0.05,405
+CA-1030,31-01-2024,02-02-2024,Standard Class,C-030,Customer 30,Consumer,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 30,4100,1,0.1,500
+CA-1031,01-02-2024,03-02-2024,Second Class,C-031,Customer 31,Corporate,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 31,4220,2,0.15,475
+CA-1032,02-02-2024,04-02-2024,First Class,C-032,Customer 32,Home Office,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 32,4340,3,0.0,450
+CA-1033,03-02-2024,05-02-2024,Standard Class,C-033,Customer 33,Consumer,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 33,4460,4,0.05,545
+CA-1034,04-02-2024,06-02-2024,Second Class,C-034,Customer 34,Corporate,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 34,4580,5,0.1,520
+CA-1035,05-02-2024,07-02-2024,First Class,C-035,Customer 35,Home Office,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 35,4700,1,0.15,495
+CA-1036,06-02-2024,08-02-2024,Standard Class,C-036,Customer 36,Consumer,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 36,4820,2,0.0,590
+CA-1037,07-02-2024,09-02-2024,Second Class,C-037,Customer 37,Corporate,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 37,4940,3,0.05,565
+CA-1038,08-02-2024,10-02-2024,First Class,C-038,Customer 38,Home Office,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 38,5060,4,0.1,540
+CA-1039,09-02-2024,11-02-2024,Standard Class,C-039,Customer 39,Consumer,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 39,5180,5,0.15,635
+CA-1040,10-02-2024,12-02-2024,Second Class,C-040,Customer 40,Corporate,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 40,5300,1,0.0,610
+CA-1041,11-02-2024,13-02-2024,First Class,C-041,Customer 41,Home Office,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 41,5420,2,0.05,585
+CA-1042,12-02-2024,14-02-2024,Standard Class,C-042,Customer 42,Consumer,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 42,5540,3,0.1,680
+CA-1043,13-02-2024,15-02-2024,Second Class,C-043,Customer 43,Corporate,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 43,5660,4,0.15,655
+CA-1044,14-02-2024,16-02-2024,First Class,C-044,Customer 44,Home Office,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 44,5780,5,0.0,630
+CA-1045,15-02-2024,17-02-2024,Standard Class,C-045,Customer 45,Consumer,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 45,5900,1,0.05,725
+CA-1046,16-02-2024,18-02-2024,Second Class,C-046,Customer 46,Corporate,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 46,6020,2,0.1,700
+CA-1047,17-02-2024,19-02-2024,First Class,C-047,Customer 47,Home Office,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 47,6140,3,0.15,675
+CA-1048,18-02-2024,20-02-2024,Standard Class,C-048,Customer 48,Consumer,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 48,6260,4,0.0,770
+CA-1049,19-02-2024,21-02-2024,Second Class,C-049,Customer 49,Corporate,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 49,6380,5,0.05,745
+CA-1050,20-02-2024,22-02-2024,First Class,C-050,Customer 50,Home Office,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 50,6500,1,0.1,720
+CA-1051,21-02-2024,23-02-2024,Standard Class,C-051,Customer 51,Consumer,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 51,6620,2,0.15,815
+CA-1052,22-02-2024,24-02-2024,Second Class,C-052,Customer 52,Corporate,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 52,6740,3,0.0,790
+CA-1053,23-02-2024,25-02-2024,First Class,C-053,Customer 53,Home Office,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 53,6860,4,0.05,765
+CA-1054,24-02-2024,26-02-2024,Standard Class,C-054,Customer 54,Consumer,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 54,6980,5,0.1,860
+CA-1055,25-02-2024,27-02-2024,Second Class,C-055,Customer 55,Corporate,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 55,7100,1,0.15,835
+CA-1056,26-02-2024,28-02-2024,First Class,C-056,Customer 56,Home Office,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 56,7220,2,0.0,810
+CA-1057,27-02-2024,29-02-2024,Standard Class,C-057,Customer 57,Consumer,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 57,7340,3,0.05,905
+CA-1058,28-02-2024,01-03-2024,Second Class,C-058,Customer 58,Corporate,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 58,7460,4,0.1,880
+CA-1059,29-02-2024,02-03-2024,First Class,C-059,Customer 59,Home Office,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 59,7580,5,0.15,855
+CA-1060,01-03-2024,03-03-2024,Standard Class,C-060,Customer 60,Consumer,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 60,7700,1,0.0,950
+CA-1061,02-03-2024,04-03-2024,Second Class,C-061,Customer 61,Corporate,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 61,7820,2,0.05,925
+CA-1062,03-03-2024,05-03-2024,First Class,C-062,Customer 62,Home Office,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 62,7940,3,0.1,900
+CA-1063,04-03-2024,06-03-2024,Standard Class,C-063,Customer 63,Consumer,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 63,8060,4,0.15,995
+CA-1064,05-03-2024,07-03-2024,Second Class,C-064,Customer 64,Corporate,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 64,8180,5,0.0,970
+CA-1065,06-03-2024,08-03-2024,First Class,C-065,Customer 65,Home Office,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 65,8300,1,0.05,945
+CA-1066,07-03-2024,09-03-2024,Standard Class,C-066,Customer 66,Consumer,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 66,8420,2,0.1,1040
+CA-1067,08-03-2024,10-03-2024,Second Class,C-067,Customer 67,Corporate,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 67,8540,3,0.15,1015
+CA-1068,09-03-2024,11-03-2024,First Class,C-068,Customer 68,Home Office,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 68,8660,4,0.0,990
+CA-1069,10-03-2024,12-03-2024,Standard Class,C-069,Customer 69,Consumer,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 69,8780,5,0.05,1085
+CA-1070,11-03-2024,13-03-2024,Second Class,C-070,Customer 70,Corporate,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 70,8900,1,0.1,1060
+CA-1071,12-03-2024,14-03-2024,First Class,C-071,Customer 71,Home Office,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 71,9020,2,0.15,1035
+CA-1072,13-03-2024,15-03-2024,Standard Class,C-072,Customer 72,Consumer,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 72,9140,3,0.0,1130
+CA-1073,14-03-2024,16-03-2024,Second Class,C-073,Customer 73,Corporate,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 73,9260,4,0.05,1105
+CA-1074,15-03-2024,17-03-2024,First Class,C-074,Customer 74,Home Office,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 74,9380,5,0.1,1080
+CA-1075,16-03-2024,18-03-2024,Standard Class,C-075,Customer 75,Consumer,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 75,9500,1,0.15,1175
+CA-1076,17-03-2024,19-03-2024,Second Class,C-076,Customer 76,Corporate,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 76,9620,2,0.0,1150
+CA-1077,18-03-2024,20-03-2024,First Class,C-077,Customer 77,Home Office,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 77,9740,3,0.05,1125
+CA-1078,19-03-2024,21-03-2024,Standard Class,C-078,Customer 78,Consumer,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 78,9860,4,0.1,1220
+CA-1079,20-03-2024,22-03-2024,Second Class,C-079,Customer 79,Corporate,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 79,9980,5,0.15,1195
+CA-1080,21-03-2024,23-03-2024,First Class,C-080,Customer 80,Home Office,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 80,10100,1,0.0,1170
+CA-1081,22-03-2024,24-03-2024,Standard Class,C-081,Customer 81,Consumer,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 81,10220,2,0.05,1265
+CA-1082,23-03-2024,25-03-2024,Second Class,C-082,Customer 82,Corporate,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 82,10340,3,0.1,1240
+CA-1083,24-03-2024,26-03-2024,First Class,C-083,Customer 83,Home Office,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 83,10460,4,0.15,1215
+CA-1084,25-03-2024,27-03-2024,Standard Class,C-084,Customer 84,Consumer,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 84,10580,5,0.0,1310
+CA-1085,26-03-2024,28-03-2024,Second Class,C-085,Customer 85,Corporate,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 85,10700,1,0.05,1285
+CA-1086,27-03-2024,29-03-2024,First Class,C-086,Customer 86,Home Office,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 86,10820,2,0.1,1260
+CA-1087,28-03-2024,30-03-2024,Standard Class,C-087,Customer 87,Consumer,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 87,10940,3,0.15,1355
+CA-1088,29-03-2024,31-03-2024,Second Class,C-088,Customer 88,Corporate,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 88,11060,4,0.0,1330
+CA-1089,30-03-2024,01-04-2024,First Class,C-089,Customer 89,Home Office,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 89,11180,5,0.05,1305
+CA-1090,31-03-2024,02-04-2024,Standard Class,C-090,Customer 90,Consumer,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 90,11300,1,0.1,1400
+CA-1091,01-04-2024,03-04-2024,Second Class,C-091,Customer 91,Corporate,India,Mumbai,Maharashtra,West,Technology,Laptops,Laptops Product 91,11420,2,0.15,1375
+CA-1092,02-04-2024,04-04-2024,First Class,C-092,Customer 92,Home Office,India,Delhi,Delhi,North,Technology,Accessories,Accessories Product 92,11540,3,0.0,1350
+CA-1093,03-04-2024,05-04-2024,Standard Class,C-093,Customer 93,Consumer,India,Bangalore,Karnataka,South,Furniture,Chairs,Chairs Product 93,11660,4,0.05,1445
+CA-1094,04-04-2024,06-04-2024,Second Class,C-094,Customer 94,Corporate,India,Hyderabad,Telangana,South,Furniture,Tables,Tables Product 94,11780,5,0.1,1420
+CA-1095,05-04-2024,07-04-2024,First Class,C-095,Customer 95,Home Office,India,Pune,Maharashtra,West,Furniture,Bookcases,Bookcases Product 95,11900,1,0.15,1395
+CA-1096,06-04-2024,08-04-2024,Standard Class,C-096,Customer 96,Consumer,India,Coimbatore,Tamil Nadu,South,Office Supplies,Binders,Binders Product 96,12020,2,0.0,1490
+CA-1097,07-04-2024,09-04-2024,Second Class,C-097,Customer 97,Corporate,India,Madurai,Tamil Nadu,South,Office Supplies,Paper,Paper Product 97,12140,3,0.05,1465
+CA-1098,08-04-2024,10-04-2024,First Class,C-098,Customer 98,Home Office,India,Kochi,Kerala,South,Office Supplies,Pens,Pens Product 98,12260,4,0.1,1440
+CA-1099,09-04-2024,11-04-2024,Standard Class,C-099,Customer 99,Consumer,India,Noida,Uttar Pradesh,North,Office Supplies,Storage,Storage Product 99,12380,5,0.15,1535
+CA-1100,10-04-2024,12-04-2024,Second Class,C-100,Customer 100,Corporate,India,Chennai,Tamil Nadu,South,Technology,Phones,Phones Product 100,12500,1,0.0,1510

@@ -1,0 +1,138 @@
+================================================================================
+PROJECT TITLE: 
+Intelligent Prompt-Based Automatic Data Analytics and Visualization System
+================================================================================
+
+1. ABSTRACT
+--------------------------------------------------------------------------------
+In the era of big data, extracting meaningful insights from raw datasets is often complex and time-consuming, requiring expertise in data science tools. This project, the "Intelligent Prompt-Based Automatic Data Analytics and Visualization System," aims to democratize data analysis by bridging the gap between natural language and technical execution. The system allows users to upload raw datasets (CSV, Excel) and interact with them using simple English prompts (e.g., "Show me the sales trend over time"). Using a robust backend processing engine and an interactive frontend, the system automatically cleans data, interprets user intent, and generates relevant visualizations (Bar, Line, Scatter, Pie charts, etc.) without writing a single line of code.
+
+2. INTRODUCTION
+--------------------------------------------------------------------------------
+2.1 Problem Statement:
+Traditional data analytics tools (like Tableau, PowerBI, or coding in Python/R) have a steep learning curve. Non-technical users struggle to visualize their data quickly. Existing solutions often lack an intuitive, "conversational" interface for immediate chart generation.
+
+2.2 Objectives:
+- To develop a web-based platform for easy data upload and automated preprocessing.
+- To implement an intelligent parsing engine that translates natural language prompts into analytical queries.
+- To provide instant, interactive visualizations based on user queries.
+- To enable users to export reports and charts for offline use.
+
+2.3 Scope:
+The system supports structured tabular data (CSV/Excel). It focuses on descriptive analytics (What happened?) and diagnostic analytics (Why did it happen?) through visualization. It is designed for students, business analysts, and researchers.
+
+3. SYSTEM ANALYSIS
+--------------------------------------------------------------------------------
+3.1 Existing System:
+- Manual coding (Pandas, Matplotlib) requires programming skills.
+- GUI-based tools (Excel) can be cumbersome for large datasets and lack "prompt-based" automation.
+
+3.2 Proposed System:
+- Automated Data Cleaning: Handle missing values and types automatically.
+- NLP-Driven: Users just type what they want to see.
+- Web-Accessibility: No installation required, accessible via browser.
+
+3.3 Feasibility Study:
+- Technical: Built using standard, open-source technologies (React, Python).
+- Economic: Low cost, relies on free libraries.
+- Operational: Intuitive UI minimizes training needs.
+
+4. SYSTEM REQUIREMENTS
+--------------------------------------------------------------------------------
+4.1 Hardware Requirements:
+- Processor: Intel Core i5 or higher (recommended for server processing).
+- RAM: 8GB or higher (for handling large datasets in memory).
+- Storage: 500MB free space.
+
+4.2 Software Requirements:
+- Operating System: Windows 10/11, Linux, or macOS.
+- Frontend: Node.js, npm/yarn, Web Browser (Chrome/Edge/Firefox).
+- Backend: Python 3.8+.
+- IDE: VS Code or PyCharm.
+
+5. SYSTEM ARCHITECTURE
+--------------------------------------------------------------------------------
+The system follows a typical Client-Server architecture:
+
+[ CLIENT (Browser) ] <---- JSON ----> [ SERVER (API) ] <----> [ DATA PROCESSING ]
+
+5.1 Tech Stack:
+- Frontend:
+  - Framework: React (Vite)
+  - Styling: Tailwind CSS
+  - State Management: React Hooks
+  - Visualizations: Recharts
+  - HTTP Client: Axios
+  - Icons: Lucide-React
+  - Animations: Framer Motion
+  - Export: jsPDF, html2canvas
+
+- Backend:
+  - Framework: FastAPI (Python)
+  - Server: Uvicorn
+  - Data Manipulation: Pandas, NumPy
+  - File Handling: Python-multipart, OpenPyXL
+  - NLP/Logic: Custom Intent Parsing Logic (heuristic-based)
+
+6. MODULES DESCRIPTION
+--------------------------------------------------------------------------------
+6.1 Data Upload & Preprocessing Module:
+- Functionality: Accepts CSV/Excel files.
+- Process: Validates file format, detects encoding, cleans missing values (imputation/dropping), and calculates a "Data Quality Score".
+- Output: Cleaned dataset stored server-side with a unique session ID.
+
+6.2 Prompt Parsing Engine (NLP Engine):
+- Functionality: Interprets user text inputs.
+- Logic: Identifies keywords (e.g., "trend", "distribution", "vs") and maps them to chart types (Line, Histogram, Scatter). Matches column names from the dataset using fuzzy matching or direct presence.
+- Output: Structured "Intent" object (Chart Type, X-Axis, Y-Axis, Aggregation Method).
+
+6.3 Visualization Module:
+- Functionality: Renders charts based on the "Intent" object.
+- Features: Interactive tooltips, responsive resizing, color-coded categories.
+- Chart Types Supported: Bar Chart, Line Chart, Pie Chart, Donut Chart, Scatter Plot, Histogram, Box Plot.
+
+6.4 Export & Reporting Module:
+- Functionality: Allows users to download specific charts as images (PNG/JPG) or generate a comprehensive PDF summary of the analysis.
+
+7. IMPLEMENTATION DETAILS
+--------------------------------------------------------------------------------
+7.1 Backend Logic (Python/FastAPI):
+- The `calculate_quality_score` function assesses data health based on missing values and inconsistencies.
+- The `parse_prompt` function uses keyword associations:
+  - "Trend", "Over time" -> Line Chart
+  - "Distribution", "Frequency" -> Histogram
+  - "Composition", "Part of" -> Pie/Donut Chart
+  - "Relationship", "Correlation", "vs" -> Scatter Plot
+
+7.2 Frontend Interface (React):
+- Built with a modern, glassmorphism-inspired UI using Tailwind CSS.
+- Uses `framer-motion` for smooth transitions between upload and dashboard views.
+- Components: `Upload.jsx` (File dropzone), `Dashboard.jsx` (Chat & Charts), `ChartRenderer.jsx` (Recharts wrapper).
+
+8. DATA FLOW DIAGRAM (Simplified)
+--------------------------------------------------------------------------------
+[User] -> (Upload File) -> [Server] -> (Clean & Store Data) -> [Review]
+[User] -> (Type Prompt) -> [Server] -> (Parse Intent) -> (Query Data) -> [Response JSON]
+[Response JSON] -> [Frontend] -> (Render Chart) -> [User View]
+
+9. TESTING
+--------------------------------------------------------------------------------
+- Unit Testing: Testing individual functions (e.g., Does the cleaner actually remove nulls?).
+- Integration Testing: Verifying Client-Server communication (API status codes 200/404/500).
+- System Testing: End-to-end flow from Upload to Visualization.
+- User Acceptance Testing: Verifying if the charts match the user's prompt intent.
+
+10. CONCLUSION
+--------------------------------------------------------------------------------
+The "Intelligent Prompt-Based Automatic Data Analytics and Visualization System" successfully simplifies the data analysis process. By combining a robust Python backend with a reactive frontend, it enables users to visualize complex datasets through natural conversation. It reduces the time-to-insight significantly compared to manual plotting methods.
+
+11. FUTURE SCOPE
+--------------------------------------------------------------------------------
+- Integration of LLMs (e.g., OpenAI GPT, Gemini) for more advanced, context-aware reasoning.
+- Support for more file formats (JSON, SQL Databases).
+- Automated insight generation (textual summary of findings).
+- User Accounts and Cloud Storage for persistent projects.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
