@@ -1,137 +1,284 @@
 ================================================================================
-PROJECT TITLE: 
+PROJECT TITLE:
 Intelligent Prompt-Based Automatic Data Analytics and Visualization System
+                             (GVS DataNova)
 ================================================================================
+Last Updated: February 2026
 
 1. ABSTRACT
 --------------------------------------------------------------------------------
-In the era of big data, extracting meaningful insights from raw datasets is often complex and time-consuming, requiring expertise in data science tools. This project, the "Intelligent Prompt-Based Automatic Data Analytics and Visualization System," aims to democratize data analysis by bridging the gap between natural language and technical execution. The system allows users to upload raw datasets (CSV, Excel) and interact with them using simple English prompts (e.g., "Show me the sales trend over time"). Using a robust backend processing engine and an interactive frontend, the system automatically cleans data, interprets user intent, and generates relevant visualizations (Bar, Line, Scatter, Pie charts, etc.) without writing a single line of code.
+In the era of big data, extracting meaningful insights from raw datasets is
+often complex and time-consuming, requiring expertise in data science tools.
+"GVS DataNova" democratizes data analysis by bridging the gap between natural
+language and technical execution. Users upload raw datasets (CSV/Excel) and
+interact with them using simple English prompts (e.g., "Show me the sales
+trend over time"). Using a robust Python/FastAPI backend and a React-based
+interactive frontend, the system automatically cleans data, interprets user
+intent, and instantly generates relevant, customizable visualizations without
+writing a single line of code. The system also supports follow-up prompts,
+context memory, color customization, chart export, and PDF reporting.
 
 2. INTRODUCTION
 --------------------------------------------------------------------------------
 2.1 Problem Statement:
-Traditional data analytics tools (like Tableau, PowerBI, or coding in Python/R) have a steep learning curve. Non-technical users struggle to visualize their data quickly. Existing solutions often lack an intuitive, "conversational" interface for immediate chart generation.
+Traditional data analytics tools (Tableau, PowerBI, Python/R) have a steep
+learning curve. Non-technical users struggle to visualize their data quickly.
+Existing solutions often lack an intuitive, "conversational" interface for
+immediate chart generation.
 
 2.2 Objectives:
-- To develop a web-based platform for easy data upload and automated preprocessing.
-- To implement an intelligent parsing engine that translates natural language prompts into analytical queries.
-- To provide instant, interactive visualizations based on user queries.
-- To enable users to export reports and charts for offline use.
+- To develop a web-based platform for easy data upload and automated
+  preprocessing with a data quality score.
+- To implement an intelligent NLP parsing engine that translates natural
+  language prompts into analytical queries using fuzzy matching.
+- To provide instant, interactive, and customizable visualizations based on
+  user queries.
+- To support context memory for follow-up prompts (e.g., "Change it to blue").
+- To enable users to export charts as PNG/JPG and download full PDF reports.
 
 2.3 Scope:
-The system supports structured tabular data (CSV/Excel). It focuses on descriptive analytics (What happened?) and diagnostic analytics (Why did it happen?) through visualization. It is designed for students, business analysts, and researchers.
+The system supports structured tabular data (CSV/Excel). It focuses on
+descriptive analytics (What happened?) through visualization. It is designed
+for students, business analysts, and researchers who need quick insight
+extraction without coding.
 
 3. SYSTEM ANALYSIS
 --------------------------------------------------------------------------------
 3.1 Existing System:
 - Manual coding (Pandas, Matplotlib) requires programming skills.
-- GUI-based tools (Excel) can be cumbersome for large datasets and lack "prompt-based" automation.
+- GUI-based tools (Excel) are cumbersome for large datasets and lack
+  prompt-based automation.
+- SaaS tools (Tableau Public) require training and often cost money.
 
 3.2 Proposed System:
-- Automated Data Cleaning: Handle missing values and types automatically.
-- NLP-Driven: Users just type what they want to see.
-- Web-Accessibility: No installation required, accessible via browser.
+- Automated Data Cleaning: Handle missing values, type detection, and data
+  quality scoring automatically.
+- NLP-Driven with Fuzzy Matching: Users type what they want; the engine
+  matches column names even with partial or misspelled input (using thefuzz).
+- Context Memory: Follow-up prompts like "make it a line chart" or "use blue"
+  are understood and applied without repeating the full prompt.
+- Web-Accessible: No installation required; accessible via any modern browser.
 
 3.3 Feasibility Study:
-- Technical: Built using standard, open-source technologies (React, Python).
-- Economic: Low cost, relies on free libraries.
-- Operational: Intuitive UI minimizes training needs.
+- Technical: Built using standard, well-documented, open-source technologies
+  (React + Vite, Python FastAPI).
+- Economic: Low cost; relies entirely on free and open-source libraries.
+- Operational: Intuitive three-stage UI (Upload -> Preview -> Dashboard)
+  minimizes training needs.
 
 4. SYSTEM REQUIREMENTS
 --------------------------------------------------------------------------------
 4.1 Hardware Requirements:
-- Processor: Intel Core i5 or higher (recommended for server processing).
-- RAM: 8GB or higher (for handling large datasets in memory).
-- Storage: 500MB free space.
+- Processor: Intel Core i5 or higher (recommended for backend processing).
+- RAM: 8GB or higher (for handling datasets in memory with Pandas).
+- Storage: 500MB free space (for uploaded datasets and Python packages).
 
 4.2 Software Requirements:
 - Operating System: Windows 10/11, Linux, or macOS.
-- Frontend: Node.js, npm/yarn, Web Browser (Chrome/Edge/Firefox).
-- Backend: Python 3.8+.
-- IDE: VS Code or PyCharm.
+- Frontend: Node.js v18+, npm, Web Browser (Chrome / Edge / Firefox).
+- Backend: Python 3.8+, pip.
+- IDE: VS Code (recommended; a .vscode/launch.json is included).
+
+4.3 Runtime Dependencies:
+- Backend (server/requirements.txt):
+  fastapi, uvicorn, pandas, openpyxl, python-multipart, numpy,
+  thefuzz, python-Levenshtein
+- Frontend (client/package.json — key libraries):
+  react, react-dom, recharts, axios, framer-motion, lucide-react,
+  jspdf, html2canvas, tailwindcss
 
 5. SYSTEM ARCHITECTURE
 --------------------------------------------------------------------------------
-The system follows a typical Client-Server architecture:
+The system follows a decoupled Client-Server architecture:
 
-[ CLIENT (Browser) ] <---- JSON ----> [ SERVER (API) ] <----> [ DATA PROCESSING ]
+  [ Browser (React/Vite) ]  <--- JSON / REST --->  [ FastAPI Server (Python) ]
+                                                              |
+                                                   [ Pandas / NumPy Engine ]
+                                                              |
+                                                   [ /data/ (Cleaned CSVs) ]
 
-5.1 Tech Stack:
-- Frontend:
-  - Framework: React (Vite)
-  - Styling: Tailwind CSS
-  - State Management: React Hooks
-  - Visualizations: Recharts
-  - HTTP Client: Axios
-  - Icons: Lucide-React
-  - Animations: Framer Motion
-  - Export: jsPDF, html2canvas
+5.1 Project Structure:
+  finalyearproject/
+  ├── client/                   # React Frontend (Vite)
+  │   └── src/
+  │       ├── App.jsx            # Root component; manages view routing
+  │       ├── context/
+  │       │   └── ThemeContext.jsx  # Dark/Light mode context provider
+  │       └── components/
+  │           ├── Upload.jsx      # File drag-and-drop upload UI
+  │           ├── DataPreview.jsx # Tabular preview + quality stats
+  │           ├── Chat.jsx        # Prompt chat interface + history
+  │           ├── ChartDisplay.jsx# Recharts-based chart rendering
+  │           └── Sidebar.jsx     # Navigation, history, theme toggle
+  ├── server/                   # Python FastAPI Backend
+  │   ├── main.py               # API routes: /upload, /query
+  │   └── modules/
+  │       ├── nlp_engine.py     # Intent parsing + fuzzy column matching
+  │       └── data_processor.py # Data cleaning + quality score calc
+  └── data/                     # Uploaded/cleaned datasets (runtime)
 
-- Backend:
-  - Framework: FastAPI (Python)
-  - Server: Uvicorn
-  - Data Manipulation: Pandas, NumPy
-  - File Handling: Python-multipart, OpenPyXL
-  - NLP/Logic: Custom Intent Parsing Logic (heuristic-based)
+5.2 Full Tech Stack:
+  Frontend:
+    - Framework:        React 18 with Vite
+    - Styling:          Tailwind CSS + custom dark/light theme
+    - State:            React Hooks (useState, useContext)
+    - Visualizations:   Recharts (Bar, Line, Area, Pie, Donut, Scatter,
+                        Histogram, Box, Heatmap)
+    - HTTP Client:      Axios
+    - Icons:            Lucide-React
+    - Animations:       Framer Motion
+    - Export:           jsPDF + html2canvas
 
-6. MODULES DESCRIPTION
+  Backend:
+    - Framework:        FastAPI (Python)
+    - Server:           Uvicorn (ASGI)
+    - Data:             Pandas, NumPy, OpenPyXL
+    - NLP/Matching:     thefuzz (FuzzyWuzzy), python-Levenshtein
+    - File Handling:    python-multipart
+    - Session Storage:  In-memory Python dict (SESSION_CONTEXT)
+
+6. API ENDPOINTS
 --------------------------------------------------------------------------------
-6.1 Data Upload & Preprocessing Module:
-- Functionality: Accepts CSV/Excel files.
-- Process: Validates file format, detects encoding, cleans missing values (imputation/dropping), and calculates a "Data Quality Score".
-- Output: Cleaned dataset stored server-side with a unique session ID.
+  GET  /
+    - Health check. Returns: {"message": "GVS DataNova Backend is Running"}
 
-6.2 Prompt Parsing Engine (NLP Engine):
-- Functionality: Interprets user text inputs.
-- Logic: Identifies keywords (e.g., "trend", "distribution", "vs") and maps them to chart types (Line, Histogram, Scatter). Matches column names from the dataset using fuzzy matching or direct presence.
-- Output: Structured "Intent" object (Chart Type, X-Axis, Y-Axis, Aggregation Method).
+  POST /upload
+    - Accepts: multipart/form-data (CSV or XLSX file)
+    - Returns: file_id, filename, columns[], score, stats (rows, cols,
+               missing), column_details[], preview (first 10 rows)
 
-6.3 Visualization Module:
-- Functionality: Renders charts based on the "Intent" object.
-- Features: Interactive tooltips, responsive resizing, color-coded categories.
-- Chart Types Supported: Bar Chart, Line Chart, Pie Chart, Donut Chart, Scatter Plot, Histogram, Box Plot.
+  POST /query
+    - Body: { "prompt": "...", "file_id": "..." }
+    - Returns: intent object (chart_type, x_column, y_column),
+               chart_data[], summary, insights[], custom_color, error flag
 
-6.4 Export & Reporting Module:
-- Functionality: Allows users to download specific charts as images (PNG/JPG) or generate a comprehensive PDF summary of the analysis.
-
-7. IMPLEMENTATION DETAILS
+7. MODULES DESCRIPTION
 --------------------------------------------------------------------------------
-7.1 Backend Logic (Python/FastAPI):
-- The `calculate_quality_score` function assesses data health based on missing values and inconsistencies.
-- The `parse_prompt` function uses keyword associations:
-  - "Trend", "Over time" -> Line Chart
-  - "Distribution", "Frequency" -> Histogram
-  - "Composition", "Part of" -> Pie/Donut Chart
-  - "Relationship", "Correlation", "vs" -> Scatter Plot
+7.1 Data Upload & Preprocessing Module (Upload.jsx + data_processor.py):
+  - Accepts CSV and XLSX files via drag-and-drop or click.
+  - Validates format, reads with Pandas, cleans missing values.
+  - Calculates a "Data Quality Score" (0-100%) based on completeness.
+  - Each upload generates a unique UUID-based file_id for session tracking.
+  - Cleaned dataset is saved to /data/{file_id}_clean.csv server-side.
 
-7.2 Frontend Interface (React):
-- Built with a modern, glassmorphism-inspired UI using Tailwind CSS.
-- Uses `framer-motion` for smooth transitions between upload and dashboard views.
-- Components: `Upload.jsx` (File dropzone), `Dashboard.jsx` (Chat & Charts), `ChartRenderer.jsx` (Recharts wrapper).
+7.2 Data Preview Module (DataPreview.jsx + /upload endpoint):
+  - Displays column names, data types, and missing value counts.
+  - Shows a paginated/scrollable table of the first 10 rows.
+  - Shows overall row/column stats and data quality score.
+  - User clicks "Continue to Analysis" to enter the chat dashboard.
 
-8. DATA FLOW DIAGRAM (Simplified)
+7.3 Prompt Parsing Engine / NLP Engine (nlp_engine.py):
+  - Function: parse_prompt(prompt, columns, last_context)
+  - Step 1: Fuzzy-match column names in the prompt using thefuzz
+    (confidence threshold: 75%). Matches even partial/misspelled names.
+  - Step 2: Detect color keywords (red, blue, green, etc.) for chart styling.
+  - Step 3: Strict chart type detection (e.g., "pie chart", "bar graph").
+  - Step 4: Intent-based chart detection from keyword mappings:
+      "trend", "over time", "growth"       -> Line Chart
+      "distribution", "frequency", "spread"-> Histogram
+      "composition", "share", "percentage" -> Pie Chart
+      "donut", "doughnut"                  -> Donut Chart
+      "area", "cumulative"                 -> Area Chart
+      "correlation", "vs", "relationship"  -> Scatter Plot
+      "heatmap", "matrix", "intensity"     -> Heatmap
+      "box", "outliers", "quartile"        -> Box Plot
+      Default                              -> Bar Chart
+  - Step 5: Context memory — if prompt is vague (e.g., "make it red"),
+    reuse columns and chart type from the previous query of that session.
+  - Step 6: Auto-assign X/Y columns; time-series columns are auto-detected
+    from column name keywords (date, time, year, month, day, quarter).
+  - Returns a structured intent object.
+
+7.4 Visualization Module (ChartDisplay.jsx):
+  - Renders the correct Recharts component based on the intent object.
+  - Supported chart types: Bar, Line, Area, Pie, Donut, Scatter,
+    Histogram, Box Plot, Heatmap (as a styled grid).
+  - Applies custom_color from the session context.
+  - Interactive: tooltips, legends, responsive containers.
+  - Export: download as PNG/JPG using html2canvas.
+
+7.5 Chat & Context Module (Chat.jsx + SESSION_CONTEXT in main.py):
+  - Users interact through a chat-style interface.
+  - Each prompt is sent to /query with the current file_id.
+  - Server maintains SESSION_CONTEXT (per file_id): chart_type, x_column,
+    y_column, found_columns, custom_color for follow-up aware responses.
+  - Bot responses include reasoning, auto-generated insights (e.g., trend
+    percentage change, highest value, correlation), and error suggestions.
+
+7.6 Export & Reporting Module:
+  - Individual chart export as PNG/JPG via html2canvas (client-side).
+  - Full-session PDF report generation using jsPDF + html2canvas.
+
+7.7 Theme Module (ThemeContext.jsx + Sidebar.jsx):
+  - Global dark/light mode toggle exposed via React Context.
+  - All components respond to the theme, styled with Tailwind dark: classes.
+
+8. DATA FLOW
 --------------------------------------------------------------------------------
-[User] -> (Upload File) -> [Server] -> (Clean & Store Data) -> [Review]
-[User] -> (Type Prompt) -> [Server] -> (Parse Intent) -> (Query Data) -> [Response JSON]
-[Response JSON] -> [Frontend] -> (Render Chart) -> [User View]
+  Upload Flow:
+  [User] -> (Drag/Drop File) -> [Upload.jsx] -> POST /upload ->
+  [data_processor.py: clean + score] -> [/data/ saved] ->
+  [DataPreview.jsx: show stats + preview]
+
+  Query Flow:
+  [User] -> (Type Prompt) -> [Chat.jsx] -> POST /query ->
+  [nlp_engine.py: parse_prompt()] -> (Query Pandas DataFrame) ->
+  [Return JSON: intent + chart_data + insights] ->
+  [ChartDisplay.jsx: Render Recharts] -> [User views chart]
+
+  Follow-up Flow:
+  [User] -> ("Change it to blue") -> POST /query ->
+  [nlp_engine.py: check SESSION_CONTEXT] -> (Reuse columns/chart_type) ->
+  [Return same chart with custom_color="blue"] -> [ChartDisplay.jsx updates]
 
 9. TESTING
 --------------------------------------------------------------------------------
-- Unit Testing: Testing individual functions (e.g., Does the cleaner actually remove nulls?).
-- Integration Testing: Verifying Client-Server communication (API status codes 200/404/500).
-- System Testing: End-to-end flow from Upload to Visualization.
-- User Acceptance Testing: Verifying if the charts match the user's prompt intent.
+  - Unit Testing:       Individual function validation (e.g., clean_dataset,
+                        calculate_quality_score, parse_prompt).
+  - Integration Testing:Client-Server API tests (HTTP 200 / 404 / 500 codes).
+  - System Testing:     End-to-end: file upload -> preview -> prompt -> chart.
+  - UAT:                Verify charts match user's intent; test edge cases
+                        like misspelled columns, ambiguous prompts,
+                        follow-up color/type changes.
 
-10. CONCLUSION
+10. HOW TO RUN THE PROJECT
 --------------------------------------------------------------------------------
-The "Intelligent Prompt-Based Automatic Data Analytics and Visualization System" successfully simplifies the data analysis process. By combining a robust Python backend with a reactive frontend, it enables users to visualize complex datasets through natural conversation. It reduces the time-to-insight significantly compared to manual plotting methods.
+  Prerequisites: Python 3.8+, Node.js 18+, npm
 
-11. FUTURE SCOPE
+  Terminal 1 — Backend Server:
+    cd d:\projects\finalyearproject\server
+    pip install -r requirements.txt
+    uvicorn main:app --reload
+    -> Server starts at: http://127.0.0.1:8000
+
+  Terminal 2 — Frontend Client:
+    cd d:\projects\finalyearproject\client
+    npm install
+    npm run dev
+    -> App opens at: http://localhost:5173
+
+  Note: Run pip install and npm install only on the first run or after
+  dependency changes.
+
+11. CONCLUSION
 --------------------------------------------------------------------------------
-- Integration of LLMs (e.g., OpenAI GPT, Gemini) for more advanced, context-aware reasoning.
-- Support for more file formats (JSON, SQL Databases).
-- Automated insight generation (textual summary of findings).
-- User Accounts and Cloud Storage for persistent projects.
+"GVS DataNova" successfully simplifies data analysis by combining a robust Python
+FastAPI backend (with fuzzy NLP parsing and Pandas processing) with a reactive
+React frontend (featuring Recharts visualizations and a chat-style interface).
+The context memory system enables multi-turn conversations, allowing users to
+iteratively refine their charts. It reduces time-to-insight significantly
+compared to manual plotting or dashboard tools.
+
+12. FUTURE SCOPE
+--------------------------------------------------------------------------------
+  - Integration of LLMs (OpenAI GPT, Google Gemini) for advanced,
+    context-aware natural language reasoning beyond fuzzy keyword matching.
+  - Support for more file formats: JSON, SQL databases (SQLite, PostgreSQL).
+  - Automated insight generation: textual narrative summaries of findings.
+  - User Accounts and cloud storage for persistent, named projects.
+  - Real-time collaboration features for team-based analysis.
+  - Dashboard builder: drag-and-drop multi-chart layout creation.
+  - Predictive analytics: forecasting charts (ARIMA, simple regression).
 
 ================================================================================
 END OF DOCUMENT

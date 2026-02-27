@@ -35,32 +35,40 @@ const DataPreview = ({ currentFile, onContinue }) => {
 
             {/* Data Table */}
             <motion.div variants={itemVariants} className="flex-1 overflow-auto p-0 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
-                <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                    <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0 shadow-sm z-10">
-                        <tr>
-                            {currentFile.columns.map((col, idx) => (
-                                <th key={idx} className="px-6 py-3 border-b dark:border-gray-600">{col}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {currentFile.preview?.map((row, rIdx) => (
-                            <motion.tr
-                                key={rIdx}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: rIdx * 0.05 }}
-                                className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                                {currentFile.columns.map((col, cIdx) => (
-                                    <td key={cIdx} className="px-6 py-4 truncate max-w-xs block-inline">
-                                        {row[col] !== null ? row[col] : <span className="text-gray-300 dark:text-gray-600 italic">null</span>}
-                                    </td>
+                {(!currentFile.preview || currentFile.preview.length === 0) ? (
+                    <div className="flex flex-col items-center justify-center h-full py-16 text-gray-400 dark:text-gray-500">
+                        <FileSpreadsheet size={40} className="mb-3 opacity-40" />
+                        <p className="font-semibold text-sm">No preview available</p>
+                        <p className="text-xs mt-1">Upload a new file or start a chat to see data here.</p>
+                    </div>
+                ) : (
+                    <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0 shadow-sm z-10">
+                            <tr>
+                                {(currentFile.columns || []).map((col, idx) => (
+                                    <th key={idx} className="px-6 py-3 border-b dark:border-gray-600">{col}</th>
                                 ))}
-                            </motion.tr>
-                        ))}
-                    </tbody>
-                </table>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(currentFile.preview || []).map((row, rIdx) => (
+                                <motion.tr
+                                    key={rIdx}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: rIdx * 0.05 }}
+                                    className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    {(currentFile.columns || []).map((col, cIdx) => (
+                                        <td key={cIdx} className="px-6 py-4 truncate max-w-xs block-inline">
+                                            {row[col] !== null ? row[col] : <span className="text-gray-300 dark:text-gray-600 italic">null</span>}
+                                        </td>
+                                    ))}
+                                </motion.tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </motion.div>
 
             {/* Footer Action */}

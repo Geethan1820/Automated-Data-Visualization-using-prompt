@@ -6,3 +6,6 @@ python-multipart
 numpy
 thefuzz
 python-Levenshtein
+scikit-learn
+python-jose[cryptography]
+passlib[bcrypt]

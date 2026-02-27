@@ -1,439 +1,404 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-    BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, ScatterChart, Scatter,
-    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Label, ReferenceLine
+    BarChart, Bar, LineChart, Line, AreaChart, Area,
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+    ScatterChart, Scatter, PieChart, Pie, Cell,
+    RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+    ResponsiveContainer, ReferenceLine, Brush,
 } from 'recharts';
-import { Download, AlertCircle, Settings, X, Check, Sparkles } from 'lucide-react';
+import { Download, ZoomIn, ZoomOut, BarChart2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import html2canvas from 'html2canvas';
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
+// ─── COLORS ──────────────────────────────────────────────────────────────────
+const PALETTE = [
+    '#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b',
+    '#ef4444', '#f97316', '#84cc16', '#14b8a6', '#ec4899',
+];
 
-const ChartDisplay = ({ chartType, data, xKey, yKey, insights, reasoning, customColor }) => {
+const COLOR_MAP = {
+    red: '#ef4444', blue: '#6366f1', green: '#10b981', yellow: '#f59e0b',
+    purple: '#8b5cf6', orange: '#f97316', cyan: '#06b6d4', pink: '#ec4899',
+    teal: '#14b8a6', indigo: '#6366f1',
+};
+
+const getColor = (custom, idx = 0) => COLOR_MAP[custom] || PALETTE[idx % PALETTE.length];
+
+const TOOLTIP_STYLE = {
+    backgroundColor: '#1e293b', border: '1px solid #334155',
+    borderRadius: 12, color: '#f1f5f9', fontSize: 12,
+};
+
+// ─── DATA UTILS ───────────────────────────────────────────────────────────────
+const sanitize = (data) => {
+    if (!Array.isArray(data)) return [];
+    return data.map(row => {
+        const clean = {};
+        Object.entries(row).forEach(([k, v]) => {
+            if (v === null || v === undefined) { clean[k] = null; return; }
+            const num = typeof v === 'string'
+                ? parseFloat(v.replace(/[€$£,% ]/g, ''))
+                : Number(v);
+            clean[k] = (!isNaN(num) && v !== '') ? num : v;
+        });
+        return clean;
+    }).filter(r => Object.values(r).some(v => v !== null));
+};
+
+// ─── FUNNEL CHART (SVG Custom) ────────────────────────────────────────────────
+const FunnelChart = ({ data, xKey, yKey, color }) => {
+    const max = Math.max(...data.map(d => Number(d[yKey]) || 0));
+    const totalHeight = 300;
+    const itemH = Math.floor((totalHeight - data.length * 4) / Math.max(data.length, 1));
+
+    return (
+        <div className="w-full mt-2 space-y-1">
+            {data.map((d, i) => {
+                const pct = (Number(d[yKey]) / max) * 100;
+                const c = getColor(color, i);
+                return (
+                    <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scaleX: 0 }}
+                        animate={{ opacity: 1, scaleX: 1 }}
+                        transition={{ delay: i * 0.08 }}
+                        className="flex items-center gap-3"
+                    >
+                        <span className="text-xs text-gray-500 dark:text-gray-400 w-24 text-right truncate shrink-0">{d[xKey]}</span>
+                        <div className="flex-1 flex items-center gap-2">
+                            <motion.div
+                                style={{ width: `${pct}%`, backgroundColor: c, minWidth: 8 }}
+                                className="h-7 rounded-lg flex items-center px-2 min-w-0"
+                            >
+                                <span className="text-[10px] text-white font-bold truncate">{d[yKey]?.toLocaleString?.() ?? d[yKey]}</span>
+                            </motion.div>
+                        </div>
+                    </motion.div>
+                );
+            })}
+        </div>
+    );
+};
+
+// ─── TREEMAP (SVG Custom) ─────────────────────────────────────────────────────
+const CustomTreemap = ({ data, xKey, yKey, color }) => {
+    const total = data.reduce((s, d) => s + Number(d[yKey] || 0), 0);
+    const sorted = [...data].sort((a, b) => Number(b[yKey]) - Number(a[yKey])).slice(0, 12);
+
+    return (
+        <div className="w-full mt-2 grid grid-cols-3 gap-1.5" style={{ minHeight: 200 }}>
+            {sorted.map((d, i) => {
+                const pct = (Number(d[yKey]) / total) * 100;
+                const c = getColor(color, i);
+                const relSize = Math.max(0.5, pct / (100 / sorted.length));
+                return (
+                    <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.04 }}
+                        title={`${d[xKey]}: ${d[yKey]}`}
+                        style={{ backgroundColor: c, minHeight: Math.max(40, relSize * 50) + 'px', opacity: 0.85 + (1 - i / sorted.length) * 0.15 }}
+                        className="rounded-xl flex flex-col items-center justify-center p-1 cursor-pointer hover:opacity-100 transition-opacity"
+                    >
+                        <span className="text-[10px] font-bold text-white text-center leading-tight">{d[xKey]}</span>
+                        <span className="text-[9px] text-white/80">{pct.toFixed(1)}%</span>
+                    </motion.div>
+                );
+            })}
+        </div>
+    );
+};
+
+// ─── ML FORECAST CHART ────────────────────────────────────────────────────────
+const ForecastChart = ({ data, xKey, yKey, actualKey }) => {
+    const historical = data.filter(d => d.type === 'historical');
+    const forecast = data.filter(d => d.type === 'forecast');
+
+    return (
+        <ResponsiveContainer width="100%" height={340}>
+            <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} />
+                <XAxis dataKey={xKey} tick={{ fontSize: 10 }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend />
+                {historical.length > 0 && actualKey && (
+                    <Line
+                        type="monotone" dataKey={actualKey} name="Actual"
+                        stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }}
+                        data={historical}
+                    />
+                )}
+                <Line
+                    type="monotone" dataKey={yKey} name="Forecast"
+                    stroke="#10b981" strokeWidth={2} dot={{ r: 3 }}
+                    strokeDasharray="5 3"
+                />
+                {/* Divider between historical and forecast */}
+                {historical.length > 0 && (
+                    <ReferenceLine
+                        x={historical[historical.length - 1]?.[xKey]}
+                        stroke="#f59e0b" strokeDasharray="4 4"
+                        label={{ value: 'Forecast →', fontSize: 10, fill: '#f59e0b' }}
+                    />
+                )}
+            </LineChart>
+        </ResponsiveContainer>
+    );
+};
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+const ChartDisplay = ({
+    chartType, data, xKey, yKey, insights = [], reasoning = '',
+    customColor, mlResult, compact = false,
+}) => {
     const chartRef = useRef(null);
-    const [showSettings, setShowSettings] = useState(false);
+    const [limit, setLimit] = useState(25);
 
-    // Settings State
-    const [range, setRange] = useState({ min: '', max: '' });
-    const [limit, setLimit] = useState(20);
-    const [showAvgLine, setShowAvgLine] = useState(false);
-    const [showMinMaxLines, setShowMinMaxLines] = useState(false);
+    const cleanData = sanitize(data || []);
+    const limitedData = cleanData.slice(0, limit);
+    const primaryColor = getColor(customColor, 0);
 
-    // 1. Robust Data Cleaning Function
-    const cleanValue = (val) => {
-        if (typeof val === 'number') return val;
-        if (val === null || val === undefined || val === '') return 0;
+    // Infer keys if not provided
+    const resolvedXKey = xKey || (cleanData[0] && Object.keys(cleanData[0])[0]);
+    const resolvedYKey = yKey || (cleanData[0] && Object.keys(cleanData[0]).find(k => typeof cleanData[0][k] === 'number')) || '';
 
-        // Handle dates - if it's a date string, leave it for the axis to handle
-        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) return val;
-
-        // Remove currency symbols, commas, spaces, etc., and parse
-        const cleaned = String(val).replace(/[^\d.-]/g, "");
-        const num = parseFloat(cleaned);
-        return isNaN(num) ? val : num; // Return original if not a number
-    };
-
-    // Filter and Process Data
-    const { processedData, stats } = useMemo(() => {
-        // console.log("ChartInputs:", { chartType, data, xKey, yKey });
-        if (!data || !Array.isArray(data)) return { processedData: [], stats: { avg: 0, min: 0, max: 0 } };
-
-        // Sanitize & Cast Data
-        let filtered = data.map(item => ({
-            ...item,
-            [xKey]: cleanValue(item[xKey]),
-            [yKey]: cleanValue(item[yKey])
-        }));
-
-        // Filter by Range (Min/Max on Y-Axis)
-        if (range.min !== '') filtered = filtered.filter(d => Number(d[yKey]) >= Number(range.min));
-        if (range.max !== '') filtered = filtered.filter(d => Number(d[yKey]) <= Number(range.max));
-
-        // Sort & Limit logic for specific charts
-        if (['bar', 'pie', 'donut', 'area'].includes(chartType)) {
-            const xIsNum = filtered.every(d => !isNaN(Number(d[xKey])));
-            if (!xIsNum && chartType !== 'area' && chartType !== 'line') {
-                filtered.sort((a, b) => b[yKey] - a[yKey]);
-            }
-            if (limit > 0) filtered = filtered.slice(0, limit);
-        }
-
-        // Calculate Stats
-        const values = filtered.map(d => d[yKey]);
-        const sum = values.reduce((a, b) => a + b, 0);
-        const avg = values.length ? sum / values.length : 0;
-        const min = values.length ? Math.min(...values) : 0;
-        const max = values.length ? Math.max(...values) : 0;
-
-        return {
-            processedData: filtered,
-            stats: { avg, min, max }
-        };
-    }, [data, range, limit, yKey, chartType, xKey]);
-
-    React.useEffect(() => {
-        if (processedData && processedData.length > 0) {
-            console.log(`[ChartDebug] Type: ${chartType}, xKey: ${xKey}, yKey: ${yKey}`);
-            console.log(`[ChartDebug] First Point:`, processedData[0]);
-        }
-    }, [processedData, chartType, xKey, yKey]);
-
-    if (!data || data.length === 0) {
-        return (
-            <div className="w-full h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-                <AlertCircle size={32} className="mb-2 opacity-50" />
-                <p className="text-sm">No data generated</p>
-            </div>
-        );
-    }
-
-    if (processedData.length === 0) {
-        return (
-            <div className="w-full h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-                <AlertCircle size={32} className="mb-2 opacity-50" />
-                <p className="text-sm">Data was filtered out completely.</p>
-                <p className="text-xs text-gray-500 mt-1">Check settings or ranges.</p>
-            </div>
-        );
-    }
-
-    const handleDownload = async () => {
+    const downloadChart = async () => {
         if (chartRef.current) {
             const canvas = await html2canvas(chartRef.current);
             const link = document.createElement('a');
-            link.download = `chart-${chartType}-${Date.now()}.png`;
+            link.download = `datasight_chart_${Date.now()}.png`;
             link.href = canvas.toDataURL();
             link.click();
         }
     };
 
-    const formatLabel = (str) => str ? String(str).charAt(0).toUpperCase() + String(str).slice(1) : "Value";
-
-    const commonProps = {
-        margin: { top: 20, right: 30, left: 20, bottom: 20 },
-        className: "overflow-visible" // Allow shadows to spill out slightly
-    };
-
-    // Shared SVG Defs for 3D Effects
-    const renderDefs = () => (
-        <defs>
-            {/* 3D Drop Shadow */}
-            <filter id="shadow3d" height="200%">
-                <feDropShadow dx="2" dy="4" stdDeviation="3" floodColor="#000000" floodOpacity="0.3" />
-            </filter>
-
-            {/* Glossy Gradient for Bars */}
-            <linearGradient id="glossyGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
-                <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-            </linearGradient>
-
-            {/* Custom Color Gradient */}
-            <linearGradient id="mainGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={customColor || '#3b82f6'} stopOpacity={1} />
-                <stop offset="100%" stopColor={customColor || '#3b82f6'} stopOpacity={0.6} />
-            </linearGradient>
-
-            <linearGradient id="colorPv" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={customColor || '#8b5cf6'} stopOpacity={0.8} />
-                <stop offset="95%" stopColor={customColor || '#8b5cf6'} stopOpacity={0} />
-            </linearGradient>
-        </defs>
-    );
-
-    const axisStroke = "#94a3b8";
-
-    const renderReferenceLines = () => (
-        <>
-            {showAvgLine && !isNaN(stats.avg) && <ReferenceLine y={stats.avg} label="Avg" stroke="#ef4444" strokeDasharray="3 3" strokeWidth={2} />}
-            {showMinMaxLines && !isNaN(stats.max) && <ReferenceLine y={stats.max} label="Max" stroke="#10b981" strokeDasharray="3 3" />}
-            {showMinMaxLines && !isNaN(stats.min) && <ReferenceLine y={stats.min} label="Min" stroke="#f59e0b" strokeDasharray="3 3" />}
-        </>
-    );
-
     const renderChart = () => {
+        // ML Forecast special case
+        if (mlResult?.ml_type === 'forecast') {
+            return (
+                <ForecastChart
+                    data={cleanData}
+                    xKey={mlResult.x_key || 'label'}
+                    yKey={mlResult.y_key || 'predicted'}
+                    actualKey={mlResult.actual_key}
+                />
+            );
+        }
+
+        const commonProps = { margin: { top: 10, right: 20, left: 0, bottom: 10 } };
+        const axisProps = {
+            tick: { fontSize: compact ? 9 : 11 },
+            tickLine: false,
+        };
+        const gridProps = { strokeDasharray: '3 3', stroke: '#e2e8f0', strokeOpacity: 0.5 };
+        const height = compact ? 200 : 320;
+
         switch (chartType) {
             case 'bar':
-            case 'histogram': // Treat histogram similarly for now
                 return (
-                    <BarChart data={processedData} {...commonProps} barCategoryGap={chartType === 'histogram' ? 1 : '20%'}>
-                        {renderDefs()}
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.2} vertical={false} />
-                        <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: axisStroke }} axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}>
-                            <Label value={formatLabel(xKey)} offset={-10} position="insideBottom" fill={axisStroke} />
-                        </XAxis>
-                        <YAxis tick={{ fontSize: 11, fill: axisStroke }} axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}>
-                            <Label value={formatLabel(yKey)} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill={axisStroke} />
-                        </YAxis>
-                        <Tooltip
-                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#1e293b' }}
-                        />
-                        <Legend verticalAlign="top" iconType="circle" wrapperStyle={{ color: axisStroke, paddingBottom: '20px' }} />
-                        <Bar
-                            dataKey={yKey}
-                            name={formatLabel(yKey)}
-                            radius={[8, 8, 4, 4]}
-                            animationDuration={1500}
-                        >
-                            {processedData.map((entry, index) => (
-                                <Cell
-                                    key={`cell-${index}`}
-                                    fill={customColor || COLORS[index % COLORS.length]}
-                                    stroke="rgba(255,255,255,0.2)"
-                                    strokeWidth={1}
-                                />
-                            ))}
-                        </Bar>
-                        {renderReferenceLines()}
-                    </BarChart>
+                    <ResponsiveContainer width="100%" height={height}>
+                        <BarChart data={limitedData} {...commonProps}>
+                            <CartesianGrid {...gridProps} />
+                            <XAxis dataKey={resolvedXKey} {...axisProps} />
+                            <YAxis {...axisProps} axisLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            {!compact && <Brush dataKey={resolvedXKey} height={20} />}
+                            <Bar dataKey={resolvedYKey} name={resolvedYKey} radius={[4, 4, 0, 0]}>
+                                {limitedData.map((_, i) => <Cell key={i} fill={getColor(customColor, i)} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 );
+
             case 'line':
                 return (
-                    <LineChart data={processedData} {...commonProps}>
-                        {renderDefs()}
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.2} vertical={false} />
-                        <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: axisStroke }} axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}>
-                            <Label value={formatLabel(xKey)} offset={-10} position="insideBottom" fill={axisStroke} />
-                        </XAxis>
-                        <YAxis tick={{ fontSize: 11, fill: axisStroke }} axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}>
-                            <Label value={formatLabel(yKey)} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill={axisStroke} />
-                        </YAxis>
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backgroundColor: 'rgba(255, 255, 255, 0.95)' }} />
-                        <Legend verticalAlign="top" iconType="plainline" wrapperStyle={{ color: axisStroke, paddingBottom: '20px' }} />
-                        <Line
-                            type="monotone"
-                            dataKey={yKey}
-                            stroke={customColor || "#8b5cf6"}
-                            strokeWidth={4}
-                            dot={{ r: 6, strokeWidth: 3, fill: 'white', stroke: customColor || "#8b5cf6" }}
-                            activeDot={{ r: 10, strokeWidth: 0, fill: customColor || "#8b5cf6" }}
-                            name={formatLabel(yKey)}
-                            animationDuration={2000}
-                            connectNulls={true}
-                        />
-                        {renderReferenceLines()}
-                    </LineChart>
+                    <ResponsiveContainer width="100%" height={height}>
+                        <LineChart data={limitedData} {...commonProps}>
+                            <CartesianGrid {...gridProps} />
+                            <XAxis dataKey={resolvedXKey} {...axisProps} />
+                            <YAxis {...axisProps} axisLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Line type="monotone" dataKey={resolvedYKey} stroke={primaryColor} strokeWidth={2.5} dot={{ r: 3, fill: primaryColor }} activeDot={{ r: 5 }} />
+                        </LineChart>
+                    </ResponsiveContainer>
                 );
+
             case 'area':
                 return (
-                    <AreaChart data={processedData} {...commonProps}>
-                        {renderDefs()}
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.2} vertical={false} />
-                        <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: axisStroke }} axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}>
-                            <Label value={formatLabel(xKey)} offset={-10} position="insideBottom" fill={axisStroke} />
-                        </XAxis>
-                        <YAxis tick={{ fontSize: 11, fill: axisStroke }} axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}>
-                            <Label value={formatLabel(yKey)} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill={axisStroke} />
-                        </YAxis>
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backgroundColor: 'rgba(255, 255, 255, 0.95)' }} />
-                        <Area
-                            type="monotone"
-                            dataKey={yKey}
-                            stroke={customColor || "#8b5cf6"}
-                            strokeWidth={3}
-                            fillOpacity={1}
-                            fill="url(#colorPv)"
-                            name={formatLabel(yKey)}
-                            animationDuration={2000}
-                            connectNulls={true}
-                        />
-                        {renderReferenceLines()}
-                    </AreaChart>
+                    <ResponsiveContainer width="100%" height={height}>
+                        <AreaChart data={limitedData} {...commonProps}>
+                            <defs>
+                                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={primaryColor} stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor={primaryColor} stopOpacity={0.02} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid {...gridProps} />
+                            <XAxis dataKey={resolvedXKey} {...axisProps} />
+                            <YAxis {...axisProps} axisLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Area type="monotone" dataKey={resolvedYKey} stroke={primaryColor} strokeWidth={2.5} fill="url(#areaGrad)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
                 );
+
             case 'scatter':
                 return (
-                    <ScatterChart {...commonProps}>
-                        {renderDefs()}
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.2} />
-                        <XAxis
-                            type={typeof processedData[0]?.[xKey] === 'number' ? "number" : "category"}
-                            dataKey={xKey}
-                            name={xKey}
-                            tick={{ fontSize: 11, fill: axisStroke }}
-                            axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}
-                        >
-                            <Label value={formatLabel(xKey)} offset={-10} position="insideBottom" fill={axisStroke} />
-                        </XAxis>
-                        <YAxis
-                            type={typeof processedData[0]?.[yKey] === 'number' ? "number" : "category"}
-                            dataKey={yKey}
-                            name={yKey}
-                            tick={{ fontSize: 11, fill: axisStroke }}
-                            axisLine={{ stroke: axisStroke, strokeWidth: 1.5 }}
-                        >
-                            <Label value={formatLabel(yKey)} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill={axisStroke} />
-                        </YAxis>
-                        <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backgroundColor: 'rgba(255, 255, 255, 0.95)' }} />
-                        <Scatter
-                            name="Data"
-                            data={processedData}
-                            fill={customColor || "#ec4899"}
-                            animationDuration={1500}
-                        />
-                        {renderReferenceLines()}
-                    </ScatterChart>
+                    <ResponsiveContainer width="100%" height={height}>
+                        <ScatterChart {...commonProps}>
+                            <CartesianGrid {...gridProps} />
+                            <XAxis dataKey={resolvedXKey} name={resolvedXKey} {...axisProps} />
+                            <YAxis dataKey={resolvedYKey} name={resolvedYKey} {...axisProps} axisLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ strokeDasharray: '3 3' }} />
+                            <Scatter data={limitedData} fill={primaryColor} opacity={0.72} />
+                        </ScatterChart>
+                    </ResponsiveContainer>
                 );
+
             case 'pie':
-            case 'donut': {
-                const innerRadius = chartType === 'donut' ? 60 : 0;
+            case 'donut':
                 return (
-                    <PieChart {...commonProps}>
-                        {renderDefs()}
-                        <Pie
-                            data={processedData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={innerRadius}
-                            outerRadius={100}
-                            paddingAngle={2}
-                            dataKey={yKey}
-                            nameKey={xKey || "name"}
-                            label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                            labelLine={false}
-                            animationDuration={1500}
-                        >
-                            {processedData.map((entry, index) => (
-                                <Cell
-                                    key={`cell-${index}`}
-                                    fill={COLORS[index % COLORS.length]}
-                                    stroke="white"
-                                    strokeWidth={3}
-                                />
-                            ))}
-                        </Pie>
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backgroundColor: 'rgba(255, 255, 255, 0.95)' }} />
-                        <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ color: axisStroke, paddingTop: '20px' }} />
-                    </PieChart>
+                    <ResponsiveContainer width="100%" height={height}>
+                        <PieChart>
+                            <Pie
+                                data={limitedData}
+                                dataKey={resolvedYKey}
+                                nameKey={resolvedXKey}
+                                cx="50%" cy="50%"
+                                outerRadius={compact ? 70 : 120}
+                                innerRadius={chartType === 'donut' ? (compact ? 35 : 60) : 0}
+                                paddingAngle={3}
+                                label={compact ? null : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                                {limitedData.map((_, i) => <Cell key={i} fill={getColor(customColor, i)} />)}
+                            </Pie>
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            {!compact && <Legend />}
+                        </PieChart>
+                    </ResponsiveContainer>
+                );
+
+            case 'histogram':
+                return (
+                    <ResponsiveContainer width="100%" height={height}>
+                        <BarChart data={limitedData} {...commonProps}>
+                            <CartesianGrid {...gridProps} />
+                            <XAxis dataKey="bin" {...axisProps} />
+                            <YAxis {...axisProps} axisLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="count" fill={primaryColor} radius={[3, 3, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                );
+
+            case 'radar': {
+                const numKeys = Object.keys(cleanData[0] || {}).filter(k => typeof cleanData[0][k] === 'number').slice(0, 5);
+                const radarData = numKeys.map(k => ({
+                    subject: k,
+                    value: cleanData.reduce((s, d) => s + (Number(d[k]) || 0), 0) / cleanData.length,
+                }));
+                return (
+                    <ResponsiveContainer width="100%" height={height}>
+                        <RadarChart data={radarData}>
+                            <PolarGrid stroke="#e2e8f0" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
+                            <PolarRadiusAxis tick={{ fontSize: 9 }} />
+                            <Radar name="avg" dataKey="value" stroke={primaryColor} fill={primaryColor} fillOpacity={0.35} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                        </RadarChart>
+                    </ResponsiveContainer>
                 );
             }
+
+            case 'funnel':
+                return <FunnelChart data={limitedData} xKey={resolvedXKey} yKey={resolvedYKey} color={customColor} />;
+
+            case 'treemap':
+                return <CustomTreemap data={limitedData} xKey={resolvedXKey} yKey={resolvedYKey} color={customColor} />;
+
+            case 'bubble': {
+                const sizeKey = Object.keys(cleanData[0] || {}).filter(k => typeof cleanData[0][k] === 'number')[2];
+                return (
+                    <ResponsiveContainer width="100%" height={height}>
+                        <ScatterChart {...commonProps}>
+                            <CartesianGrid {...gridProps} />
+                            <XAxis dataKey={resolvedXKey} name={resolvedXKey} {...axisProps} />
+                            <YAxis dataKey={resolvedYKey} name={resolvedYKey} {...axisProps} axisLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Scatter
+                                data={limitedData}
+                                fill={primaryColor}
+                                opacity={0.65}
+                            />
+                        </ScatterChart>
+                    </ResponsiveContainer>
+                );
+            }
+
             default:
                 return (
-                    // Fallback to Bar
-                    <BarChart data={processedData} {...commonProps}>
-                        {renderDefs()}
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey={xKey || "name"} />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey={yKey || "value"} fill={customColor || "#3b82f6"} filter="url(#shadow3d)" />
-                    </BarChart>
+                    <ResponsiveContainer width="100%" height={height}>
+                        <BarChart data={limitedData} {...commonProps}>
+                            <CartesianGrid {...gridProps} />
+                            <XAxis dataKey={resolvedXKey} {...axisProps} />
+                            <YAxis {...axisProps} axisLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey={resolvedYKey} fill={primaryColor} radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
                 );
         }
     };
 
+    if (!cleanData.length) return null;
+
     return (
-        <div className="w-full mt-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm relative group transition-colors">
-            {/* Header Controls */}
-            <div className="flex justify-between items-center mb-2 px-2">
-                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">{chartType} Chart</span>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        className={`transition-colors p-1 rounded-md ${showSettings ? 'bg-blue-50 dark:bg-blue-900/30 text-primary' : 'text-gray-400 hover:text-primary dark:hover:text-primary'}`}
-                        title="Chart Settings"
-                    >
-                        <Settings size={16} />
-                    </button>
-                    <button onClick={handleDownload} className="text-gray-400 hover:text-primary transition-colors p-1" title="Download Chart">
-                        <Download size={16} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Settings Panel */}
-            {showSettings && (
-                <div className="absolute top-12 right-4 z-10 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-64 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Chart Settings</h3>
-                        <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+        <div className="w-full">
+            {/* Controls */}
+            {!compact && (
+                <div className="flex items-center justify-between px-3 pt-2 pb-1">
+                    <div className="flex items-center gap-1.5">
+                        <BarChart2 size={13} className="text-gray-400" />
+                        <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            {chartType?.toUpperCase()} · {cleanData.length} pts
+                        </span>
                     </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 block mb-1">Value Range</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="number"
-                                    placeholder="Min"
-                                    className="w-full px-2 py-1 text-sm border rounded bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    value={range.min}
-                                    onChange={(e) => setRange(prev => ({ ...prev, min: e.target.value }))}
-                                />
-                                <input
-                                    type="number"
-                                    placeholder="Max"
-                                    className="w-full px-2 py-1 text-sm border rounded bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    value={range.max}
-                                    onChange={(e) => setRange(prev => ({ ...prev, max: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 block mb-1">Items to Show</label>
-                            <input
-                                type="range"
-                                min="5"
-                                max="50"
-                                step="5"
-                                value={limit}
-                                onChange={(e) => setLimit(Number(e.target.value))}
-                                className="w-full accent-primary"
-                            />
-                            <div className="text-right text-xs text-gray-400">Top {limit} items</div>
-                        </div>
-
-                        <div>
-                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 block mb-2">Reference Lines</label>
-                            <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
+                        {cleanData.length > 25 && (
+                            <div className="flex items-center gap-1">
                                 <button
-                                    onClick={() => setShowAvgLine(!showAvgLine)}
-                                    className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${showAvgLine ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}
+                                    onClick={() => setLimit(l => Math.max(10, l - 10))}
+                                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-0.5 rounded"
+                                    title="Show fewer"
                                 >
-                                    Average
+                                    <ZoomOut size={13} />
                                 </button>
+                                <span className="text-[10px] text-gray-400">{Math.min(limit, cleanData.length)} shown</span>
                                 <button
-                                    onClick={() => setShowMinMaxLines(!showMinMaxLines)}
-                                    className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${showMinMaxLines ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}
+                                    onClick={() => setLimit(l => Math.min(cleanData.length, l + 10))}
+                                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-0.5 rounded"
+                                    title="Show more"
                                 >
-                                    Min/Max
+                                    <ZoomIn size={13} />
                                 </button>
                             </div>
-                        </div>
+                        )}
+                        <button
+                            onClick={downloadChart}
+                            className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="Download chart"
+                        >
+                            <Download size={13} />
+                        </button>
                     </div>
                 </div>
             )}
 
-            <div ref={chartRef} className="h-[400px] min-h-[400px] w-full bg-white dark:bg-gray-800 font-sans text-xs transition-colors">
-                <ResponsiveContainer width="100%" height="100%" key={`${chartType}-${xKey}-${yKey}-${processedData.length}`}>
-                    {renderChart()}
-                </ResponsiveContainer>
-            </div>
-
-            {/* Reasoning & Insights Footer */}
-            <div className="mt-4 space-y-2">
-                {reasoning && (
-                    <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
-                        <Check size={14} className="text-green-500 mt-0.5" />
-                        <span>{reasoning}</span>
-                    </div>
-                )}
-
-                {insights && insights.length > 0 && (
-                    <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                            <Sparkles size={12} className="text-amber-500" />
-                            Key Insights
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {insights.map((insight, idx) => (
-                                <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-2 rounded-lg text-xs text-amber-900 dark:text-amber-200">
-                                    {insight}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+            {/* Chart */}
+            <div ref={chartRef} className={compact ? 'px-1' : 'px-2 pb-2'}>
+                {renderChart()}
             </div>
         </div>
     );
