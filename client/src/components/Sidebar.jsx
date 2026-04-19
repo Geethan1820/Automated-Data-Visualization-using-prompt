@@ -1,254 +1,290 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import API from '../config';
 import {
-    LayoutDashboard, MessageSquare, Database, Plus,
-    Table, Moon, Sun, LogOut, User, Clock, FileText, RefreshCw, Trash2
+  LayoutDashboard,
+  MessageSquare,
+  Database,
+  Plus,
+  Table,
+  Moon,
+  Sun,
+  Clock3,
+  FileText,
+  RefreshCw,
+  Trash2,
+  ArrowUpRight,
+  LogOut,
+  BarChart3,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSession, view }) => {
-    const { theme, toggleTheme } = useTheme();
-    const { user, logout } = useAuth();
-    const [sessions, setSessions] = useState([]);
-    const [loadingHistory, setLoadingHistory] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState(null); // { id, filename }
-    const [deleting, setDeleting] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
+  const [sessions, setSessions] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-    const fetchSessions = async () => {
-        setLoadingHistory(true);
-        try {
-            const res = await axios.get('http://localhost:8000/files');
-            setSessions(res.data.files || []);
-        } catch (e) {
-            console.warn('Could not load session history:', e.message);
-        } finally {
-            setLoadingHistory(false);
-        }
-    };
+  const fetchSessions = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await axios.get(`${API}/files`);
+      setSessions(res.data.files || []);
+    } catch (e) {
+      console.warn('Could not load session history:', e.message);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
-    useEffect(() => { fetchSessions(); }, [currentFile?.file_id]);
+  useEffect(() => {
+    fetchSessions();
+  }, [currentFile?.file_id]);
 
-    const formatDate = (iso) => {
-        if (!iso) return '';
-        try {
-            return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        } catch { return ''; }
-    };
+  const formatDate = (iso) => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch {
+      return '';
+    }
+  };
 
-    const handleSessionClick = async (session) => {
-        if (onLoadSession) {
-            onLoadSession(session);
-        }
-    };
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await axios.delete(`${API}/files/${deleteTarget.id}`);
+      setSessions((prev) => prev.filter((session) => session.id !== deleteTarget.id));
+      if (onDeleteSession) onDeleteSession(deleteTarget.id);
+    } catch (e) {
+      console.warn('Delete failed:', e.message);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
-    const handleDeleteConfirm = async () => {
-        if (!deleteTarget) return;
-        setDeleting(true);
-        try {
-            await axios.delete(`http://localhost:8000/files/${deleteTarget.id}`);
-            setSessions(prev => prev.filter(s => s.id !== deleteTarget.id));
-            if (onDeleteSession) onDeleteSession(deleteTarget.id);
-        } catch (e) {
-            console.warn('Delete failed:', e.message);
-        } finally {
-            setDeleting(false);
-            setDeleteTarget(null);
-        }
-    };
+  return (
+    <>
+      <aside className="flex h-full w-24 shrink-0 flex-col border-r border-white/5 bg-[#020617] text-slate-100 shadow-[20px_0_80px_rgba(0,0,0,0.5)] sm:w-80 z-20">
+        <div className="border-b border-white/5 px-3 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-8 bg-slate-900/20">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-float">
+                <BarChart3 size={24} />
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500/80">
+                  Data Processor
+                </p>
+                <h1 className="mt-1 text-2xl font-black tracking-tight text-white italic">DATANOVA</h1>
+              </div>
+            </div>
+          </div>
 
-    return (
-        <>
-            <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full transition-colors shrink-0">
-                {/* Logo */}
-                <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow">
-                            <LayoutDashboard size={16} className="text-white" />
+          <div className="mt-6 rounded-2xl bg-emerald-500/5 p-4 border border-emerald-500/10">
+            <p className="hidden text-[11px] leading-relaxed text-slate-400 sm:block mb-4">
+              Harness AI to transform raw datasets into beautiful, interactive visual intelligence.
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onNewChat}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-slate-950 transition hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            >
+              <Plus size={18} />
+              <span className="hidden sm:inline tracking-wider">NEW ANALYSIS</span>
+            </motion.button>
+          </div>
+        </div>
+
+        <div className="px-3 pt-6 sm:px-6">
+          <p className="hidden px-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 sm:block mb-4">Core Workspace</p>
+          <nav className="space-y-1">
+            <SidebarItem
+              icon={<LayoutDashboard size={18} />}
+              label="Dashboard"
+              hint="Global Overview"
+              active={view === 'dashboard'}
+              onClick={() => setView('dashboard')}
+            />
+            {currentFile && (
+              <>
+                <SidebarItem
+                  icon={<MessageSquare size={18} />}
+                  label="AI Chat"
+                  hint="Conversational Data"
+                  active={view === 'chat'}
+                  onClick={() => setView('chat')}
+                />
+                <SidebarItem
+                  icon={<Table size={18} />}
+                  label="Data Vault"
+                  hint="Raw Records"
+                  active={view === 'preview'}
+                  onClick={() => setView('preview')}
+                />
+              </>
+            )}
+          </nav>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-8 sm:px-6 sm:pb-6">
+          <div className="mb-4 flex items-center justify-between px-2">
+            <p className="hidden text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 sm:block">Archive</p>
+            <button
+              onClick={fetchSessions}
+              className="rounded-lg p-1.5 text-slate-600 transition hover:bg-emerald-500/10 hover:text-emerald-400"
+            >
+              <RefreshCw size={14} className={loadingHistory ? 'animate-spin' : ''} />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-premium">
+            {sessions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-600">
+                Empty Archive
+              </div>
+            ) : (
+              sessions.map((session, index) => (
+                <motion.div
+                  key={session.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${
+                    currentFile?.file_id === session.id
+                      ? 'border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                      : 'border-white/5 bg-slate-900/20 hover:border-emerald-500/20 hover:bg-emerald-500/5'
+                  }`}
+                >
+                  <button onClick={() => onLoadSession?.(session)} className="w-full px-4 py-4 text-left">
+                    <div className="flex items-start gap-4">
+                      <div className={`mt-0.5 rounded-xl p-2.5 transition-colors ${
+                        currentFile?.file_id === session.id ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-500 group-hover:text-emerald-400'
+                      }`}>
+                        <FileText size={16} />
+                      </div>
+                      <div className="hidden min-w-0 flex-1 sm:block">
+                        <p className={`truncate text-sm font-bold tracking-tight ${
+                          currentFile?.file_id === session.id ? 'text-emerald-400' : 'text-slate-200 group-hover:text-white'
+                        }`}>{session.filename}</p>
+                        <div className="mt-2 flex items-center gap-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5"><Clock3 size={10} /> {formatDate(session.uploaded_at)}</span>
+                          <span className="h-1 w-1 rounded-full bg-slate-700" />
+                          <span className="text-emerald-500/70">{session.quality_score}% Quality</span>
                         </div>
-                        <h1 className="text-xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            GVS DataNova
-                        </h1>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">v2</span>
-                </div>
+                  </button>
 
-                {/* User Badge */}
-                {user && (
-                    <div className="px-4 pt-3">
-                        <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                <User size={12} className="text-white" />
-                            </div>
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate flex-1">{user.username}</span>
-                            <button onClick={logout} title="Logout" className="text-gray-400 hover:text-red-500 transition-colors">
-                                <LogOut size={13} />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteTarget(session);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    <span className="flex rounded-lg bg-red-500/10 p-2 text-red-400 hover:bg-red-500/20">
+                      <Trash2 size={14} />
+                    </span>
+                  </button>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </div>
 
-                {/* New Chat Button */}
-                <div className="p-4 pb-0">
-                    <motion.button
-                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        onClick={onNewChat}
-                        className="w-full flex items-center gap-2 justify-center bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-semibold text-sm"
-                    >
-                        <Plus size={16} /> New Analysis
-                    </motion.button>
-                </div>
+        <div className="border-t border-white/5 space-y-2 p-4 sm:p-6 bg-slate-900/20">
+          <div className="hidden rounded-2xl border border-white/5 bg-slate-900/50 px-4 py-3 sm:block">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/60 mb-1">OPERATOR</p>
+            <p className="truncate text-sm font-black text-white">{user?.username ?? 'GUEST'}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-slate-900/50 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20"
+            >
+              <LogOut size={14} />
+              <span>EXIT</span>
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-slate-900/50 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/20"
+            >
+              {theme === 'light' ? <Sun size={14} /> : <Moon size={14} />}
+              <span>{theme === 'light' ? 'DAY' : 'NT'}</span>
+            </button>
+          </div>
+        </div>
+      </aside>
 
-                {/* Nav */}
-                <nav className="p-4 space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-2">Menu</p>
-                    <SidebarItem icon={<LayoutDashboard size={16} />} label="Dashboard" active={view === 'dashboard'} onClick={() => setView('dashboard')} />
-                    {currentFile && (
-                        <>
-                            <SidebarItem icon={<MessageSquare size={16} />} label="Chat" active={view === 'chat'} onClick={() => setView('chat')} />
-                            <SidebarItem icon={<Table size={16} />} label="Dataset Preview" active={view === 'preview'} onClick={() => setView('preview')} />
-                        </>
-                    )}
-                </nav>
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-red-100 p-3 text-red-500 dark:bg-red-950/40 dark:text-red-400">
+                <Trash2 size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900 dark:text-white">Delete session?</p>
+                <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{deleteTarget.filename}</p>
+              </div>
+            </div>
 
-                {/* History */}
-                <div className="flex-1 flex flex-col overflow-hidden px-4">
-                    <div className="flex items-center justify-between mb-2 mt-2">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">History</p>
-                        <button onClick={fetchSessions} className="text-gray-400 hover:text-blue-500 transition-colors" title="Refresh history">
-                            <RefreshCw size={11} className={loadingHistory ? 'animate-spin' : ''} />
-                        </button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-1 pb-2">
-                        {sessions.length === 0 ? (
-                            <p className="text-xs text-gray-400 italic px-2">No previous sessions</p>
-                        ) : (
-                            sessions.map((s, i) => (
-                                <motion.div
-                                    key={s.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.04 }}
-                                    className={`relative group rounded-xl transition-all ${currentFile?.file_id === s.id
-                                        ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/40'
-                                        : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                                        }`}
-                                >
-                                    <button
-                                        onClick={() => handleSessionClick(s)}
-                                        className="w-full text-left px-3 py-2 pr-8"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <FileText size={12} className="text-gray-400 shrink-0" />
-                                            <span className="text-xs text-gray-700 dark:text-gray-300 font-medium truncate flex-1">
-                                                {s.filename}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-0.5 pl-5">
-                                            <Clock size={9} className="text-gray-300" />
-                                            <span className="text-[10px] text-gray-400">{formatDate(s.uploaded_at)}</span>
-                                            <span className={`text-[10px] font-bold ml-auto ${s.quality_score >= 80 ? 'text-green-500' : s.quality_score >= 50 ? 'text-amber-500' : 'text-red-400'}`}>
-                                                {s.quality_score}%
-                                            </span>
-                                        </div>
-                                    </button>
-                                    {/* Delete button — appears on hover */}
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
-                                        title="Delete this session"
-                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400"
-                                    >
-                                        <Trash2 size={13} />
-                                    </button>
-                                </motion.div>
-                            ))
-                        )}
-                    </div>
-                </div>
+            <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              This removes the uploaded dataset and its related history. The action cannot be undone.
+            </p>
 
-                {/* Current File Badge */}
-                {currentFile && (
-                    <div className="px-4 py-2">
-                        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl px-3 py-2 border border-blue-100 dark:border-blue-800">
-                            <Database size={13} className="text-blue-500 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 truncate">{currentFile.filename}</p>
-                                <p className="text-[10px] text-blue-500">{currentFile.stats?.rows?.toLocaleString()} rows · Score: {currentFile.score}%</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Theme Toggle */}
-                <div className="p-4 border-t border-gray-100 dark:border-gray-800">
-                    <button
-                        onClick={toggleTheme}
-                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors"
-                    >
-                        <span className="flex items-center gap-2 font-medium">
-                            {theme === 'light' ? <Sun size={15} /> : <Moon size={15} />}
-                            {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
-                        </span>
-                    </button>
-                </div>
-            </aside>
-
-            {/* ── Delete Confirmation Dialog ─────────────────────────────── */}
-            {deleteTarget && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.92 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.92 }}
-                        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-sm mx-4"
-                    >
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                                <Trash2 size={18} className="text-red-500" />
-                            </div>
-                            <div>
-                                <p className="font-bold text-gray-900 dark:text-white text-sm">Delete Session?</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[220px]">{deleteTarget.filename}</p>
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
-                            This will permanently delete the dataset and all its chat history. This action cannot be undone.
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setDeleteTarget(null)}
-                                disabled={deleting}
-                                className="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDeleteConfirm}
-                                disabled={deleting}
-                                className="flex-1 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors shadow-lg shadow-red-500/25 disabled:opacity-60"
-                            >
-                                {deleting ? 'Deleting…' : 'Delete'}
-                            </button>
-                        </div>
-                    </motion.div>
-                </div>
-            )
-            }
-        </>);
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+                className="flex-1 rounded-2xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </>
+  );
 };
 
-const SidebarItem = ({ icon, label, active, onClick }) => (
-    <button
-        onClick={onClick}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active
-            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold border border-blue-100 dark:border-blue-900/40'
-            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-    >
-        {icon}
-        <span>{label}</span>
-    </button>
+const SidebarItem = ({ icon, label, hint, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`flex w-full items-center justify-center gap-3 rounded-2xl px-3 py-3 text-left transition sm:justify-start ${
+      active
+        ? 'border border-indigo-500/35 bg-indigo-500/10 text-white'
+        : 'border border-transparent text-slate-300 hover:bg-white/5'
+    }`}
+  >
+    <span className={`rounded-xl p-2 ${active ? 'bg-indigo-400/25 text-indigo-100' : 'bg-white/5 text-slate-400'}`}>{icon}</span>
+    <span className="hidden min-w-0 flex-1 sm:block">
+      <span className="block text-sm font-semibold">{label}</span>
+      <span className="block text-xs text-slate-400">{hint}</span>
+    </span>
+  </button>
 );
 
 export default Sidebar;

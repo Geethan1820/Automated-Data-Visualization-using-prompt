@@ -97,6 +97,21 @@ def _compute_column_confidence(found_cols: List[str], columns: List[str]) -> flo
     return min(0.95, 0.5 + (exact / max(len(columns), 1)) * 0.5)
 
 
+# ─── FOLLOW-UP DETECTION ──────────────────────────────────────────────────────
+
+CHANGE_SIGNALS = [
+    "change", "switch", "convert", "make it", "show as", "use",
+    "try", "display as", "turn into", "transform", "modify",
+    "update to", "set to", "change to", "switch to", "convert to",
+]
+
+
+def _is_followup_prompt(prompt_lower: str) -> bool:
+    """Detect if the prompt is a follow-up that modifies a previous chart
+    (e.g., 'change to line chart', 'make it red', 'switch to bar')."""
+    return any(signal in prompt_lower for signal in CHANGE_SIGNALS)
+
+
 # ─── MAIN PARSE FUNCTION ──────────────────────────────────────────────────────
 
 def parse_prompt(
@@ -119,7 +134,10 @@ def parse_prompt(
     # ── 1. Dashboard intent check ─────────────────────────────────────────────
     is_dashboard = detect_dashboard_intent(prompt_lower)
 
-    # ── 2. Fuzzy column matching ──────────────────────────────────────────────
+    # ── 2. Detect if this is a follow-up / modification prompt ────────────────
+    is_followup = _is_followup_prompt(prompt_lower)
+
+    # ── 3. Fuzzy column matching ──────────────────────────────────────────────
     found_cols: List[str] = []
     confidence_threshold = 75
     sorted_columns = sorted(columns, key=len, reverse=True)
@@ -134,7 +152,7 @@ def parse_prompt(
 
     found_cols = list(dict.fromkeys(found_cols))  # Deduplicate, preserve order
 
-    # ── 3. Color detection ────────────────────────────────────────────────────
+    # ── 4. Color detection ────────────────────────────────────────────────────
     custom_color: Optional[str] = None
     colors = [
         "red", "blue", "green", "yellow", "purple", "orange",
@@ -145,13 +163,13 @@ def parse_prompt(
             custom_color = color
             break
 
-    # ── 4. Aggregation detection ──────────────────────────────────────────────
+    # ── 5. Aggregation detection ──────────────────────────────────────────────
     aggregation = detect_aggregation(prompt_lower)
 
-    # ── 5. Time filter ────────────────────────────────────────────────────────
+    # ── 6. Time filter ────────────────────────────────────────────────────────
     year_filter = _extract_year_filter(prompt_lower)
 
-    # ── 6. Chart type detection ───────────────────────────────────────────────
+    # ── 7. Chart type detection ───────────────────────────────────────────────
     explicit_chart = detect_chart_type_strict(prompt_lower)
     is_explicit = bool(explicit_chart)
     chart_type = explicit_chart or None
@@ -164,24 +182,30 @@ def parse_prompt(
         detected = detect_intent_chart(prompt_lower)
         chart_type = detected
 
-    # ── 7. Context memory ────────────────────────────────────────────────────
+    # ── 8. Context memory (carry-over from previous query) ────────────────────
     x_col: Optional[str] = None
     y_col: Optional[str] = None
+    used_context = False
 
     time_cols = [c for c in columns if any(k in c.lower() for k in TIME_KEYWORDS)]
 
     if last_context:
-        # If vague follow-up (no new columns), carry over previous state
-        if not found_cols and last_context.get("found_columns"):
-            found_cols = last_context["found_columns"]
-            x_col = last_context.get("x_column")
-            y_col = last_context.get("y_column")
+        prev_found = last_context.get("found_columns") or []
+        prev_x = last_context.get("x_column")
+        prev_y = last_context.get("y_column")
+
+        # Carry over columns when no new columns were found in the prompt,
+        # OR when this is a follow-up / modification prompt (e.g. "change to line chart")
+        if prev_found and (not found_cols or (is_followup and not found_cols)):
+            found_cols = list(prev_found)  # copy to avoid mutating context
+            x_col = prev_x
+            y_col = prev_y
+            used_context = True
             reasoning += " Kept previous data columns from context."
 
-        # Carry over chart type if prompt doesn't suggest new one
+        # Carry over chart type ONLY if no explicit/new chart was detected
         if not explicit_chart and last_context.get("chart_type"):
-            change_signals = ["change", "color", "make it", "switch", "convert"]
-            if any(s in prompt_lower for s in change_signals) or not found_cols:
+            if is_followup or not found_cols:
                 chart_type = last_context["chart_type"]
                 reasoning += f" Maintained {chart_type} chart type from context."
 
@@ -189,7 +213,19 @@ def parse_prompt(
         if not custom_color and last_context.get("custom_color"):
             custom_color = last_context["custom_color"]
 
-    # ── 8. Smart chart type refinement ───────────────────────────────────────
+    # ── 9. Re-assign x/y when chart type changed but columns came from context ─
+    #    e.g. previous was scatter (x=Sales, y=Profit), now user wants line chart
+    if used_context and explicit_chart and x_col and y_col:
+        # The chart type changed; re-evaluate x/y for the new chart type
+        if explicit_chart in ("line", "area"):
+            # Prefer a time column as x-axis for line/area charts
+            potential_time = [c for c in found_cols if c in time_cols]
+            if potential_time:
+                x_col = potential_time[0]
+                y_col = next((c for c in found_cols if c != x_col), y_col)
+                reasoning += f" Auto-selected time column '{x_col}' for {explicit_chart} chart."
+
+    # ── 10. Smart chart type refinement ───────────────────────────────────────
     if not is_explicit:
         if "over time" in prompt_lower or "trend" in prompt_lower or "growth" in prompt_lower:
             chart_type = "line"
@@ -204,7 +240,7 @@ def parse_prompt(
             chart_type = "bar"
             reasoning = f"Bar chart selected as default based on prompt context."
 
-    # ── 9. X/Y column assignment ──────────────────────────────────────────────
+    # ── 11. X/Y column assignment (only if not already set from context) ──────
     if not x_col or not y_col:
         if len(found_cols) >= 2:
             if chart_type in ("line", "area"):
@@ -224,17 +260,19 @@ def parse_prompt(
                 x_col = col
                 y_col = "count"
 
-    # ── 10. Reasoning suffix ──────────────────────────────────────────────────
+    # ── 12. Reasoning suffix ──────────────────────────────────────────────────
     if x_col and y_col and y_col != "count":
         reasoning += f" Showing '{y_col}' ({aggregation}) grouped by '{x_col}'."
     elif x_col:
         reasoning += f" Counting records by '{x_col}'."
 
-    # ── 11. Confidence score ──────────────────────────────────────────────────
+    # ── 13. Confidence score ──────────────────────────────────────────────────
     confidence = _compute_column_confidence(found_cols, columns)
     if is_explicit:
         confidence = min(0.99, confidence + 0.1)
     if aggregation != "sum":
+        confidence = min(0.99, confidence + 0.05)
+    if used_context:
         confidence = min(0.99, confidence + 0.05)
 
     return {
@@ -246,6 +284,7 @@ def parse_prompt(
         "original_prompt": prompt,
         "is_explicit": is_explicit,
         "is_dashboard": is_dashboard,
+        "is_followup": is_followup,
         "aggregation": aggregation,
         "year_filter": year_filter,
         "reasoning": reasoning.strip(),

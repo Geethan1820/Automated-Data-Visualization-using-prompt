@@ -1,91 +1,79 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Lightbulb, Sparkles } from 'lucide-react';
 
-const formatValue = (val) => {
-    if (val === null || val === undefined) return '—';
-    const num = Number(val);
-    if (isNaN(num)) return val;
-    if (Math.abs(num) >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-    if (Math.abs(num) >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+// Icon map based on emoji prefix in insight text
+const getInsightStyle = (text, index) => {
+    const styles = [
+        { border: 'border-indigo-200 dark:border-indigo-800/50', bg: 'bg-indigo-50/60 dark:bg-indigo-900/20', dot: 'bg-indigo-500', glow: 'shadow-indigo-500/20' },
+        { border: 'border-emerald-200 dark:border-emerald-800/50', bg: 'bg-emerald-50/60 dark:bg-emerald-900/20', dot: 'bg-emerald-500', glow: 'shadow-emerald-500/20' },
+        { border: 'border-amber-200 dark:border-amber-800/50', bg: 'bg-amber-50/60 dark:bg-amber-900/20', dot: 'bg-amber-500', glow: 'shadow-amber-500/20' },
+        { border: 'border-rose-200 dark:border-rose-800/50', bg: 'bg-rose-50/60 dark:bg-rose-900/20', dot: 'bg-rose-500', glow: 'shadow-rose-500/20' },
+        { border: 'border-teal-200 dark:border-teal-800/50', bg: 'bg-teal-50/60 dark:bg-teal-900/20', dot: 'bg-teal-500', glow: 'shadow-teal-500/20' },
+        { border: 'border-violet-200 dark:border-violet-800/50', bg: 'bg-violet-50/60 dark:bg-violet-900/20', dot: 'bg-violet-500', glow: 'shadow-violet-500/20' },
+    ];
+    return styles[index % styles.length];
 };
 
-const KPICard = ({ label, value, icon: Icon, color = 'blue', trend = null, delay = 0 }) => {
-    const colorConfig = {
-        blue: { bg: 'from-blue-500 to-blue-600', light: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-600 dark:text-blue-400', badge: 'bg-blue-100 dark:bg-blue-900/40' },
-        purple: { bg: 'from-purple-500 to-purple-600', light: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-600 dark:text-purple-400', badge: 'bg-purple-100 dark:bg-purple-900/40' },
-        green: { bg: 'from-green-500 to-emerald-500', light: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-600 dark:text-green-400', badge: 'bg-green-100 dark:bg-green-900/40' },
-        amber: { bg: 'from-amber-500 to-orange-500', light: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-100 dark:bg-amber-900/40' },
-        red: { bg: 'from-red-500 to-rose-500', light: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-600 dark:text-red-400', badge: 'bg-red-100 dark:bg-red-900/40' },
-    };
-    const c = colorConfig[color] || colorConfig.blue;
+export const InsightsPanel = ({ insights }) => {
+    if (!insights || insights.length === 0) return null;
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay, duration: 0.4 }}
-            whileHover={{ y: -4, scale: 1.02 }}
-            className={`${c.light} border border-${color}-100/50 dark:border-${color}-900/30 rounded-2xl p-4 relative overflow-hidden group cursor-default transition-all duration-200`}
-        >
-            {/* Background gradient accent */}
-            <div className={`absolute -top-4 -right-4 w-20 h-20 bg-gradient-to-br ${c.bg} opacity-10 rounded-full group-hover:opacity-20 transition-opacity`} />
-
-            <div className="flex items-start justify-between mb-3">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{label}</p>
-                {Icon && (
-                    <div className={`${c.badge} p-1.5 rounded-lg`}>
-                        <Icon size={14} className={c.text} />
-                    </div>
-                )}
+        <div className="mt-3 mb-1">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3 px-1">
+                <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                    <Sparkles size={13} className="text-indigo-500" />
+                </div>
+                <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">
+                    AI Insights
+                </p>
+                <div className="flex-1 h-px bg-gradient-to-r from-indigo-200/60 to-transparent dark:from-indigo-800/40" />
+                <span className="text-[10px] font-bold text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-800/50">
+                    {insights.length} findings
+                </span>
             </div>
 
-            <p className={`text-2xl font-extrabold ${c.text} leading-none`}>
-                {formatValue(value)}
-            </p>
-
-            {trend !== null && (
-                <div className="flex items-center gap-1 mt-2">
-                    {trend > 0 ? (
-                        <TrendingUp size={12} className="text-green-500" />
-                    ) : trend < 0 ? (
-                        <TrendingDown size={12} className="text-red-500" />
-                    ) : (
-                        <Minus size={12} className="text-gray-400" />
-                    )}
-                    <span className={`text-xs font-semibold ${trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                        {trend > 0 ? '+' : ''}{trend?.toFixed(1)}%
-                    </span>
-                </div>
-            )}
-        </motion.div>
-    );
-};
-
-export const KPIRow = ({ kpis }) => {
-    if (!kpis || !kpis.column) return null;
-
-    const cards = [
-        { label: 'Total', value: kpis.total, color: 'blue', icon: null },
-        { label: 'Average', value: kpis.average, color: 'purple', icon: null },
-        { label: 'Maximum', value: kpis.max, color: 'green', icon: null },
-        { label: 'Minimum', value: kpis.min, color: 'amber', icon: null },
-        { label: 'Records', value: kpis.count, color: 'red', icon: null },
-    ];
-
-    return (
-        <div className="mt-3">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
-                📊 KPIs — {kpis.column}
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                {cards.map((card, i) => (
-                    <KPICard key={card.label} {...card} delay={i * 0.07} />
-                ))}
+            {/* Insight Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                {insights.map((insight, i) => {
+                    const style = getInsightStyle(insight, i);
+                    return (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.06, duration: 0.35 }}
+                            whileHover={{ y: -2, scale: 1.01 }}
+                            className={`flex items-start gap-3 p-3.5 rounded-2xl border ${style.border} ${style.bg} shadow-sm ${style.glow} transition-all duration-200 cursor-default`}
+                        >
+                            {/* Colored dot */}
+                            <div className={`w-2 h-2 rounded-full ${style.dot} mt-1 shrink-0 shadow-[0_0_6px_currentColor]`} />
+                            <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 leading-relaxed">
+                                {insight}
+                            </p>
+                        </motion.div>
+                    );
+                })}
             </div>
         </div>
     );
 };
 
+// Keep KPICard exported for any other usage
+const KPICard = ({ label, value, color = 'blue', delay = 0 }) => {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay, duration: 0.4 }}
+            className="bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl p-4"
+        >
+            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">{label}</p>
+            <p className="text-xl font-extrabold text-slate-800 dark:text-white">{value}</p>
+        </motion.div>
+    );
+};
+
+export { KPICard };
 export default KPICard;

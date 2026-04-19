@@ -1,19 +1,40 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import API from '../config';
 
 const AuthContext = createContext(null);
 
+function readStoredProfile() {
+    try {
+        const s = localStorage.getItem('datasight_user');
+        if (s) return JSON.parse(s);
+    } catch { /* ignore */ }
+    return null;
+}
+
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
     const [token, setToken] = useState(() => localStorage.getItem('datasight_token'));
+    const [user, setUser] = useState(() => {
+        const t = localStorage.getItem('datasight_token');
+        return t ? readStoredProfile() : null;
+    });
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem('datasight_user');
-        if (storedUser && token) {
-            try { setUser(JSON.parse(storedUser)); } catch { logout(); }
-        }
+    const logout = useCallback(() => {
+        localStorage.removeItem('datasight_token');
+        localStorage.removeItem('datasight_user');
+        setToken(null);
+        setUser(null);
     }, []);
+
+    useEffect(() => {
+        if (!token) {
+            setUser(null);
+            return;
+        }
+        const p = readStoredProfile();
+        if (p) setUser(p);
+    }, [token]);
 
     const login = async (username, password) => {
         setLoading(true);
@@ -21,14 +42,15 @@ export const AuthProvider = ({ children }) => {
             const form = new URLSearchParams();
             form.append('username', username);
             form.append('password', password);
-            const res = await axios.post('http://localhost:8000/login', form, {
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            const res = await axios.post(`${API}/login`, form, {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             });
-            const { access_token, username: uname } = res.data;
+            const { access_token, username: uname, user_id } = res.data;
+            const profile = { username: uname, id: user_id };
             localStorage.setItem('datasight_token', access_token);
-            localStorage.setItem('datasight_user', JSON.stringify({ username: uname }));
+            localStorage.setItem('datasight_user', JSON.stringify(profile));
             setToken(access_token);
-            setUser({ username: uname });
+            setUser(profile);
             return { success: true };
         } catch (err) {
             return { success: false, error: err.response?.data?.detail || 'Login failed.' };
@@ -40,12 +62,13 @@ export const AuthProvider = ({ children }) => {
     const signup = async (username, password) => {
         setLoading(true);
         try {
-            const res = await axios.post('http://localhost:8000/signup', { username, password });
-            const { access_token, username: uname } = res.data;
+            const res = await axios.post(`${API}/signup`, { username, password });
+            const { access_token, username: uname, user_id } = res.data;
+            const profile = { username: uname, id: user_id };
             localStorage.setItem('datasight_token', access_token);
-            localStorage.setItem('datasight_user', JSON.stringify({ username: uname }));
+            localStorage.setItem('datasight_user', JSON.stringify(profile));
             setToken(access_token);
-            setUser({ username: uname });
+            setUser(profile);
             return { success: true };
         } catch (err) {
             return { success: false, error: err.response?.data?.detail || 'Signup failed.' };
@@ -54,21 +77,28 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
-        localStorage.removeItem('datasight_token');
-        localStorage.removeItem('datasight_user');
-        setToken(null);
-        setUser(null);
-    };
-
-    // Attach token to all axios requests
     useEffect(() => {
-        const interceptor = axios.interceptors.request.use(config => {
+        const req = axios.interceptors.request.use((config) => {
             const t = localStorage.getItem('datasight_token');
             if (t) config.headers.Authorization = `Bearer ${t}`;
             return config;
         });
-        return () => axios.interceptors.request.eject(interceptor);
+        const res = axios.interceptors.response.use(
+            (r) => r,
+            (err) => {
+                if (err.response?.status === 401) {
+                    localStorage.removeItem('datasight_token');
+                    localStorage.removeItem('datasight_user');
+                    setToken(null);
+                    setUser(null);
+                }
+                return Promise.reject(err);
+            }
+        );
+        return () => {
+            axios.interceptors.request.eject(req);
+            axios.interceptors.response.eject(res);
+        };
     }, []);
 
     return (

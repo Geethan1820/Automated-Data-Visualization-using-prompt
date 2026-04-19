@@ -1,0 +1,34 @@
+# PostgreSQL + pgAdmin 4 for GVS DataNova (optional local stack).
+# Start: docker compose up -d
+# Then set DATABASE_URL in .env to:
+#   postgresql+asyncpg://postgres:postgres@localhost:5432/datanova
+# Register server in pgAdmin: Host localhost, Port 5432, User postgres, Password postgres, DB datanova.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: datanova-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: datanova
+    ports:
+      - "5432:5432"
+    volumes:
+      - datanova_pg:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: datanova-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.test
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  datanova_pg:

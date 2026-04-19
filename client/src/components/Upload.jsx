@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Upload as UploadIcon, FileText, Loader2 } from 'lucide-react';
+import API from '../config';
+import { Upload as UploadIcon, FileText, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Upload = ({ onUploadSuccess }) => {
@@ -18,12 +19,12 @@ const Upload = ({ onUploadSuccess }) => {
         setError(null);
 
         try {
-            const res = await axios.post('http://localhost:8000/upload', formData, {
+            const res = await axios.post(`${API}/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             onUploadSuccess(res.data);
         } catch (err) {
-            setError("Failed to upload file. Please try again.");
+            setError("Analysis initialization failed. Please try a different dataset.");
             console.error(err);
         } finally {
             setLoading(false);
@@ -31,50 +32,65 @@ const Upload = ({ onUploadSuccess }) => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center h-full relative overflow-hidden">
-            {/* Background Elements */}
-            <div className="absolute top-0 left-0 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl translate-x-1/3 translate-y-1/3 pointer-events-none" />
-
+        <div className="flex flex-col items-center justify-center min-h-[500px] h-full relative overflow-hidden bg-slate-950/20">
             <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.5, type: "spring" }}
-                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl p-10 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 text-center max-w-md w-full relative z-10"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full max-w-xl px-6"
             >
-                <motion.div
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    className="bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 text-primary shadow-inner"
-                >
-                    <UploadIcon size={40} className="drop-shadow-sm" />
-                </motion.div>
-
-                <h2 className="text-3xl font-bold mb-3 text-gray-800 dark:text-white tracking-tight">Upload Dataset</h2>
-                <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
-                    Unlock insights from your data.<br />Supported formats: <span className="font-semibold text-gray-700 dark:text-gray-300">CSV, Excel</span>
-                </p>
-
-                <label className="block w-full cursor-pointer group">
-                    <input type="file" className="hidden" onChange={handleFileChange} accept=".csv, .xlsx, .xls" />
+                <div className="glass-panel rounded-[3rem] p-12 text-center relative overflow-hidden border-white/5 bg-slate-900/40">
+                    <div className="glow-orb w-64 h-64 bg-emerald-500/10 -top-20 -right-20" />
+                    
                     <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-600/40 transition-all flex items-center justify-center gap-3"
+                        whileHover={{ scale: 1.05, rotate: 2 }}
+                        className="w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-500 text-slate-950 flex items-center justify-center mx-auto mb-8 shadow-[0_0_30px_rgba(16,185,129,0.3)] relative z-10"
                     >
-                        {loading ? <Loader2 className="animate-spin" /> : <FileText size={20} />}
-                        {loading ? "Processing..." : "Select File"}
+                        <UploadIcon size={36} />
                     </motion.div>
-                </label>
 
-                {error && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="text-red-500 mt-4 text-sm bg-red-50 dark:bg-red-900/20 py-2 px-4 rounded-lg border border-red-100 dark:border-red-900/30"
-                    >
-                        {error}
-                    </motion.div>
-                )}
+                    <div className="space-y-4 mb-10 relative z-10">
+                        <h2 className="text-4xl font-black tracking-tighter text-white italic uppercase">
+                            LOAD <span className="text-emerald-400">INTELLIGENCE</span>
+                        </h2>
+                        <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-xs mx-auto">
+                            Import your raw dataset to start the automated visualization and audit process.
+                        </p>
+                    </div>
+
+                    <label className="block w-full cursor-pointer relative z-10 group">
+                        <input type="file" className="hidden" onChange={handleFileChange} accept=".csv, .xlsx, .xls" />
+                        <motion.div
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="w-full btn-primary py-5 text-[10px] tracking-[0.3em] font-black uppercase flex items-center justify-center gap-4"
+                        >
+                            {loading ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />}
+                            {loading ? "UPLOADING DATASET..." : "UPLOAD DATASET"}
+                        </motion.div>
+                    </label>
+
+                    <div className="mt-10 flex items-center justify-center gap-8 border-t border-white/5 pt-8 relative z-10">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            <ShieldCheck size={14} className="text-emerald-500/50" />
+                            Secure Audit
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            <Sparkles size={14} className="text-emerald-500/50" />
+                            AI Ready
+                        </div>
+                    </div>
+
+                    {error && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="mt-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] font-bold uppercase tracking-wider"
+                        >
+                            {error}
+                        </motion.div>
+                    )}
+                </div>
             </motion.div>
         </div>
     );

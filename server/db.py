@@ -1,86 +1,85 @@
 """
-db.py — SQLite persistence layer for DataSight.
-Handles: FILES, CHATS, CONTEXT, USERS tables.
+db.py — SQLAlchemy async persistence (SQLite or PostgreSQL via DATABASE_URL).
+Handles: Users, Files, Chats, Query logs, Context.
 """
 
-import sqlite3
-import json
 import os
-import hashlib
-import secrets
+import json
+import uuid
+import traceback
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select, delete
+from passlib.hash import pbkdf2_sha256 as hasher
+from dotenv import load_dotenv
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "database.db")
+# Load environment variables from .env
+load_dotenv()
 
+from models import Base, User, FileRecord, ChatRecord, ContextRecord, QueryLog
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+# --- DATABASE CONFIG ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "database.db")
+_DEFAULT_SQLITE = f"sqlite+aiosqlite:///{DB_PATH}"
+DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_SQLITE)
 
+# Create async engine (PostgreSQL: postgresql+asyncpg://user:pass@host:5432/dbname)
+engine = create_async_engine(DATABASE_URL, echo=False)
 
-def init_db() -> None:
-    """Create all tables if they don't exist."""
-    with get_conn() as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS users (
-                id        TEXT PRIMARY KEY,
-                username  TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at    TEXT NOT NULL
-            );
+# Async session factory
+AsyncSessionLocal = sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
-            CREATE TABLE IF NOT EXISTS files (
-                id          TEXT PRIMARY KEY,
-                user_id     TEXT,
-                filename    TEXT NOT NULL,
-                filepath    TEXT NOT NULL,
-                rows        INTEGER,
-                columns     INTEGER,
-                quality_score INTEGER,
-                uploaded_at TEXT NOT NULL,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            );
+async def init_db():
+    """Create tables (SQLite file or PostgreSQL from DATABASE_URL)."""
+    safe_url = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL
+    print(f"[DB] Database URL (masked): ...@{safe_url}")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("[DB] Schema ready.")
 
-            CREATE TABLE IF NOT EXISTS chats (
-                id          TEXT PRIMARY KEY,
-                file_id     TEXT NOT NULL,
-                user_prompt TEXT NOT NULL,
-                chart_type  TEXT,
-                x_column    TEXT,
-                y_column    TEXT,
-                aggregation TEXT,
-                chart_data  TEXT,
-                insights    TEXT,
-                kpis        TEXT,
-                ml_result   TEXT,
-                summary     TEXT,
-                color       TEXT,
-                confidence  REAL,
-                reasoning   TEXT,
-                created_at  TEXT NOT NULL,
-                FOREIGN KEY(file_id) REFERENCES files(id)
-            );
+# ─── USER OPERATIONS ─────────────────────────────────────────────────────────
 
-            CREATE TABLE IF NOT EXISTS context (
-                file_id         TEXT PRIMARY KEY,
-                last_chart_type TEXT,
-                last_x          TEXT,
-                last_y          TEXT,
-                last_color      TEXT,
-                found_columns   TEXT,
-                updated_at      TEXT NOT NULL,
-                FOREIGN KEY(file_id) REFERENCES files(id)
-            );
-        """)
-    print("[DB] Database initialized at:", DB_PATH)
+def hash_password(password: str) -> str:
+    return hasher.hash(password)
 
+def verify_password(password: str, hashed: str) -> bool:
+    try:
+        return hasher.verify(password, hashed)
+    except Exception:
+        return False
+
+async def create_user(user_id: str, username: str, password: str) -> bool:
+    async with AsyncSessionLocal() as session:
+        try:
+            new_user = User(
+                id=user_id,
+                username=username,
+                password_hash=hash_password(password)
+            )
+            session.add(new_user)
+            await session.commit()
+            return True
+        except Exception:
+            print(f"[DB ERROR] create_user:\n{traceback.format_exc()}")
+            await session.rollback()
+            return False
+
+async def get_user_by_username(username: str) -> Optional[Dict]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        if user:
+            return {"id": user.id, "username": user.username, "password_hash": user.password_hash}
+        return None
 
 # ─── FILE OPERATIONS ────────────────────────────────────────────────────────
 
-def save_file(
+async def save_file(
     file_id: str,
     filename: str,
     filepath: str,
@@ -89,49 +88,106 @@ def save_file(
     quality_score: int,
     user_id: Optional[str] = None
 ) -> None:
-    with get_conn() as conn:
-        conn.execute(
-            """INSERT OR REPLACE INTO files
-               (id, user_id, filename, filepath, rows, columns, quality_score, uploaded_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (file_id, user_id, filename, filepath, rows, columns, quality_score,
-             datetime.utcnow().isoformat())
-        )
+    async with AsyncSessionLocal() as session:
+        try:
+            # PostgreSQL doesn't have "INSERT OR REPLACE" exactly like SQLite's specialized syntax, 
+            # we use an "on conflict" style or just check first.
+            result = await session.execute(select(FileRecord).where(FileRecord.id == file_id))
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                existing.filename = filename
+                existing.filepath = filepath
+                existing.rows = rows
+                existing.columns = columns
+                existing.quality_score = quality_score
+                existing.user_id = user_id
+            else:
+                new_file = FileRecord(
+                    id=file_id,
+                    user_id=user_id,
+                    filename=filename,
+                    filepath=filepath,
+                    rows=rows,
+                    columns=columns,
+                    quality_score=quality_score
+                )
+                session.add(new_file)
+            
+            await session.commit()
+        except Exception as e:
+            print(f"[DB ERROR] save_file: {e}")
+            await session.rollback()
 
-
-def get_all_files(user_id: Optional[str] = None) -> List[Dict]:
-    with get_conn() as conn:
+async def get_all_files(user_id: Optional[str] = None) -> List[Dict]:
+    async with AsyncSessionLocal() as session:
+        query = select(FileRecord).order_by(FileRecord.uploaded_at.desc())
         if user_id:
-            rows = conn.execute(
-                "SELECT * FROM files WHERE user_id=? ORDER BY uploaded_at DESC", (user_id,)
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM files ORDER BY uploaded_at DESC"
-            ).fetchall()
-        return [dict(r) for r in rows]
+            query = query.where(FileRecord.user_id == user_id)
+        
+        result = await session.execute(query)
+        files = result.scalars().all()
+        return [
+            {
+                "id": f.id, "user_id": f.user_id, "filename": f.filename, 
+                "filepath": f.filepath, "rows": f.rows, "columns": f.columns, 
+                "quality_score": f.quality_score, "uploaded_at": f.uploaded_at.isoformat()
+            } for f in files
+        ]
 
+async def get_file(file_id: str) -> Optional[Dict]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(FileRecord).where(FileRecord.id == file_id))
+        f = result.scalar_one_or_none()
+        if f:
+             return {
+                "id": f.id, "user_id": f.user_id, "filename": f.filename, 
+                "filepath": f.filepath, "rows": f.rows, "columns": f.columns, 
+                "quality_score": f.quality_score, "uploaded_at": f.uploaded_at.isoformat()
+            }
+        return None
 
-def get_file(file_id: str) -> Optional[Dict]:
-    with get_conn() as conn:
-        row = conn.execute("SELECT * FROM files WHERE id=?", (file_id,)).fetchone()
-        return dict(row) if row else None
-
-
-def delete_file(file_id: str) -> bool:
-    """Delete a file and all its associated chats and context rows. Returns True if deleted."""
-    with get_conn() as conn:
-        conn.execute("DELETE FROM context WHERE file_id=?", (file_id,))
-        conn.execute("DELETE FROM chats WHERE file_id=?", (file_id,))
-        cursor = conn.execute("DELETE FROM files WHERE id=?", (file_id,))
-        return cursor.rowcount > 0
-
+async def delete_file(file_id: str, user_id: str) -> bool:
+    """Delete file and related rows only if it belongs to user_id."""
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(select(FileRecord).where(FileRecord.id == file_id))
+            fr = result.scalar_one_or_none()
+            if not fr or fr.user_id != user_id:
+                return False
+            await session.execute(delete(ContextRecord).where(ContextRecord.file_id == file_id))
+            await session.execute(delete(ChatRecord).where(ChatRecord.file_id == file_id))
+            await session.execute(delete(FileRecord).where(FileRecord.id == file_id))
+            await session.commit()
+            return True
+        except Exception as e:
+            print(f"[DB ERROR] delete_file: {e}")
+            await session.rollback()
+            return False
 
 # ─── CHAT OPERATIONS ─────────────────────────────────────────────────────────
 
-def save_chat(
+async def log_user_query(user_id: str, query_text: str) -> None:
+    """Store user id, natural-language query, and time (audit)."""
+    async with AsyncSessionLocal() as session:
+        try:
+            session.add(
+                QueryLog(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    query=query_text,
+                )
+            )
+            await session.commit()
+        except Exception as e:
+            print(f"[DB ERROR] log_user_query: {e}")
+            await session.rollback()
+
+
+async def save_chat(
     chat_id: str,
     file_id: str,
+    user_id: str,
     user_prompt: str,
     chart_type: Optional[str] = None,
     x_column: Optional[str] = None,
@@ -146,62 +202,92 @@ def save_chat(
     confidence: Optional[float] = None,
     reasoning: Optional[str] = None,
 ) -> None:
-    with get_conn() as conn:
-        conn.execute(
-            """INSERT OR REPLACE INTO chats
-               (id, file_id, user_prompt, chart_type, x_column, y_column,
-                aggregation, chart_data, insights, kpis, ml_result, summary,
-                color, confidence, reasoning, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                chat_id, file_id, user_prompt, chart_type, x_column, y_column,
-                aggregation,
-                json.dumps(chart_data) if chart_data is not None else None,
-                json.dumps(insights) if insights is not None else None,
-                json.dumps(kpis) if kpis is not None else None,
-                json.dumps(ml_result) if ml_result is not None else None,
-                summary, color, confidence, reasoning,
-                datetime.utcnow().isoformat()
+    async with AsyncSessionLocal() as session:
+        try:
+            new_chat = ChatRecord(
+                id=chat_id,
+                file_id=file_id,
+                user_id=user_id,
+                user_prompt=user_prompt,
+                chart_type=chart_type,
+                x_column=x_column,
+                y_column=y_column,
+                aggregation=aggregation,
+                chart_data=json.dumps(chart_data) if chart_data is not None else None,
+                insights=json.dumps(insights) if insights is not None else None,
+                kpis=json.dumps(kpis) if kpis is not None else None,
+                ml_result=json.dumps(ml_result) if ml_result is not None else None,
+                summary=summary,
+                color=color,
+                confidence=confidence,
+                reasoning=reasoning
             )
+            session.add(new_chat)
+            await session.commit()
+        except Exception as e:
+            print(f"[DB ERROR] save_chat: {e}")
+            await session.rollback()
+
+async def get_chat_history(file_id: str, user_id: str) -> List[Dict]:
+    """Chat history for this file only if the file belongs to the user."""
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(ChatRecord)
+            .join(FileRecord, ChatRecord.file_id == FileRecord.id)
+            .where(ChatRecord.file_id == file_id, FileRecord.user_id == user_id)
+            .order_by(ChatRecord.created_at.asc())
         )
-
-
-def get_chat_history(file_id: str) -> List[Dict]:
-    with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM chats WHERE file_id=? ORDER BY created_at ASC", (file_id,)
-        ).fetchall()
-        result = []
-        for r in rows:
-            d = dict(r)
-            for field in ("chart_data", "insights", "kpis", "ml_result"):
-                if d.get(field):
+        chats = result.scalars().all()
+        history = []
+        for c in chats:
+            d = {
+                "id": c.id, "file_id": c.file_id, "user_prompt": c.user_prompt,
+                "chart_type": c.chart_type, "x_column": c.x_column, "y_column": c.y_column,
+                "aggregation": c.aggregation, "summary": c.summary, "color": c.color,
+                "confidence": c.confidence, "reasoning": c.reasoning, 
+                "created_at": c.created_at.isoformat()
+            }
+            # Parse JSON fields
+            for field in ["chart_data", "insights", "kpis", "ml_result"]:
+                val = getattr(c, field)
+                if val:
                     try:
-                        d[field] = json.loads(d[field])
-                    except Exception:
-                        pass
-            result.append(d)
-        return result
+                        d[field] = json.loads(val)
+                    except json.JSONDecodeError:
+                        d[field] = None
+            history.append(d)
+        return history
 
 
-def get_chat(chat_id: str) -> Optional[Dict]:
-    with get_conn() as conn:
-        row = conn.execute("SELECT * FROM chats WHERE id=?", (chat_id,)).fetchone()
-        if not row:
+async def get_chat(chat_id: str, user_id: str) -> Optional[Dict]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(ChatRecord)
+            .join(FileRecord, ChatRecord.file_id == FileRecord.id)
+            .where(ChatRecord.id == chat_id, FileRecord.user_id == user_id)
+        )
+        c = result.scalar_one_or_none()
+        if not c:
             return None
-        d = dict(row)
-        for field in ("chart_data", "insights", "kpis", "ml_result"):
-            if d.get(field):
+        d = {
+            "id": c.id, "file_id": c.file_id, "user_prompt": c.user_prompt,
+            "chart_type": c.chart_type, "x_column": c.x_column, "y_column": c.y_column,
+            "aggregation": c.aggregation, "summary": c.summary, "color": c.color,
+            "confidence": c.confidence, "reasoning": c.reasoning,
+            "created_at": c.created_at.isoformat()
+        }
+        for field in ["chart_data", "insights", "kpis", "ml_result"]:
+            val = getattr(c, field)
+            if val:
                 try:
-                    d[field] = json.loads(d[field])
-                except Exception:
-                    pass
+                    d[field] = json.loads(val)
+                except json.JSONDecodeError:
+                    d[field] = None
         return d
-
 
 # ─── CONTEXT OPERATIONS ──────────────────────────────────────────────────────
 
-def save_context(
+async def save_context(
     file_id: str,
     chart_type: Optional[str],
     x_col: Optional[str],
@@ -209,66 +295,41 @@ def save_context(
     color: Optional[str],
     found_columns: Optional[list]
 ) -> None:
-    with get_conn() as conn:
-        conn.execute(
-            """INSERT OR REPLACE INTO context
-               (file_id, last_chart_type, last_x, last_y, last_color, found_columns, updated_at)
-               VALUES (?,?,?,?,?,?,?)""",
-            (
-                file_id, chart_type, x_col, y_col, color,
-                json.dumps(found_columns) if found_columns else None,
-                datetime.utcnow().isoformat()
-            )
-        )
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(select(ContextRecord).where(ContextRecord.file_id == file_id))
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                existing.last_chart_type = chart_type
+                existing.last_x = x_col
+                existing.last_y = y_col
+                existing.last_color = color
+                existing.found_columns = json.dumps(found_columns) if found_columns else None
+                existing.updated_at = datetime.utcnow()
+            else:
+                new_ctx = ContextRecord(
+                    file_id=file_id,
+                    last_chart_type=chart_type,
+                    last_x=x_col,
+                    last_y=y_col,
+                    last_color=color,
+                    found_columns=json.dumps(found_columns) if found_columns else None
+                )
+                session.add(new_ctx)
+            await session.commit()
+        except Exception as e:
+            print(f"[DB ERROR] save_context: {e}")
+            await session.rollback()
 
-
-def get_context(file_id: str) -> Optional[Dict]:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM context WHERE file_id=?", (file_id,)
-        ).fetchone()
-        if not row:
-            return None
-        d = dict(row)
-        if d.get("found_columns"):
-            try:
-                d["found_columns"] = json.loads(d["found_columns"])
-            except Exception:
-                d["found_columns"] = []
-        return d
-
-
-# ─── USER OPERATIONS ─────────────────────────────────────────────────────────
-
-def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    hashed = hashlib.sha256((password + salt).encode()).hexdigest()
-    return f"{salt}:{hashed}"
-
-
-def verify_password(password: str, stored: str) -> bool:
-    try:
-        salt, hashed = stored.split(":")
-        return hashlib.sha256((password + salt).encode()).hexdigest() == hashed
-    except Exception:
-        return False
-
-
-def create_user(user_id: str, username: str, password: str) -> bool:
-    try:
-        with get_conn() as conn:
-            conn.execute(
-                "INSERT INTO users (id, username, password_hash, created_at) VALUES (?,?,?,?)",
-                (user_id, username, hash_password(password), datetime.utcnow().isoformat())
-            )
-        return True
-    except sqlite3.IntegrityError:
-        return False  # Username already exists
-
-
-def get_user_by_username(username: str) -> Optional[Dict]:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM users WHERE username=?", (username,)
-        ).fetchone()
-        return dict(row) if row else None
+async def get_context(file_id: str) -> Optional[Dict]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(ContextRecord).where(ContextRecord.file_id == file_id))
+        ctx = result.scalar_one_or_none()
+        if ctx:
+            return {
+                "file_id": ctx.file_id, "last_chart_type": ctx.last_chart_type,
+                "last_x": ctx.last_x, "last_y": ctx.last_y, "last_color": ctx.last_color,
+                "found_columns": json.loads(ctx.found_columns) if ctx.found_columns else []
+            }
+        return None

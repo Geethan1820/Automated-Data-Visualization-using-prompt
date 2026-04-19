@@ -1,11 +1,17 @@
+import os
+from dotenv import load_dotenv
+# Load environment from root folder explicitly at the very start with OVERRIDE
+dotenv_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(dotenv_path, override=True)
+
 """
 main.py — GVS DataNova FastAPI Backend (Upgraded)
-Endpoints: /upload, /query, /history/{file_id}, /files,
-           /signup, /login, /dashboard/{file_id}, /chat/{chat_id}
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import pandas as pd
 import numpy as np
@@ -16,11 +22,12 @@ import time
 
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 import db
 from modules.data_processor import clean_dataset, calculate_quality_score, detect_column_types
-from modules.nlp_engine import parse_prompt
+from modules import llm_engine as ai
+from modules import cache
 from modules.insight_engine import generate_insights
 from modules.ml_engine import detect_ml_intent, run_ml
 
@@ -30,7 +37,7 @@ SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "datasight-secret-key-change-in-pr
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+UPLOAD_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "data"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(title="GVS DataNova API", version="2.0.0")
@@ -43,18 +50,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login", auto_error=True)
 
 # ─── STARTUP ──────────────────────────────────────────────────────────────────
 
 @app.on_event("startup")
-def on_startup():
-    db.init_db()
-    print("[GVS DataNova] Backend v2.0 started. DB initialized.")
+async def on_startup():
+    await db.init_db()
+    key = os.environ.get("GEMINI_API_KEY", "")
+    key_status = f"LOADED ({key[:5]}...)" if key else "MISSING"
+    print("================================================================")
+    print("[GVS DataNova] Backend v2.0 started.")
+    print(f"[GVS DataNova] AI API Status: {key_status}")
+    print("[GVS DataNova] Server URL: http://localhost:8000")
+    print("================================================================")
 
-# ─── IN-MEMORY SESSION (fast follow-up; DB is ground-truth) ──────────────────
-
-SESSION_CONTEXT = {}  # file_id -> last intent context
+# Session logic now uses in-memory caching via the 'cache' module.
 
 # ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
 
@@ -65,25 +76,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> Optional[dict]:
-    """Optional auth — returns None if no token provided (allow anonymous)."""
-    if not token:
-        return None
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    """Validate JWT and return user id + username."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            return None
-        user = db.get_user_by_username(username)
-        return user
+        user_id = payload.get("user_id")
+        username = payload.get("sub")
+        if not user_id or not username:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        return {"id": user_id, "username": username}
     except JWTError:
-        return None
-
-# ─── HEALTH ───────────────────────────────────────────────────────────────────
-
-@app.get("/")
-def read_root():
-    return {"message": "GVS DataNova Backend is Running", "version": "2.0.0"}
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 # ─── AUTH ENDPOINTS ───────────────────────────────────────────────────────────
 
@@ -98,7 +101,7 @@ async def signup(
         raise HTTPException(400, "Password must be at least 6 characters.")
 
     user_id = str(uuid.uuid4())
-    success = db.create_user(user_id, username, password)
+    success = await db.create_user(user_id, username, password)
     if not success:
         raise HTTPException(409, "Username already exists. Please choose another.")
 
@@ -106,12 +109,17 @@ async def signup(
         {"sub": username, "user_id": user_id},
         timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    return {"access_token": token, "token_type": "bearer", "username": username}
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "username": username,
+        "user_id": user_id,
+    }
 
 
 @app.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = db.get_user_by_username(form_data.username)
+    user = await db.get_user_by_username(form_data.username)
     if not user or not db.verify_password(form_data.password, user["password_hash"]):
         raise HTTPException(401, "Incorrect username or password.")
 
@@ -123,35 +131,31 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         "access_token": token,
         "token_type": "bearer",
         "username": user["username"],
+        "user_id": user["id"],
     }
 
 # ─── FILE OPERATIONS ──────────────────────────────────────────────────────────
 
 @app.get("/files")
-async def get_files(current_user=Depends(get_current_user)):
-    user_id = current_user["id"] if current_user else None
-    files = db.get_all_files(user_id)
+async def get_files(current_user: dict = Depends(get_current_user)):
+    files = await db.get_all_files(current_user["id"])
     return {"files": files}
 
 
 @app.delete("/files/{file_id}")
-async def delete_file(file_id: str, current_user=Depends(get_current_user)):
-    """Permanently delete a file session and all its chat history."""
-    # Remove physical files from disk
-    file_record = db.get_file(file_id)
-    if file_record:
-        for path in [file_record["filepath"], file_record["filepath"].replace("_clean.csv", "")]:
-            try:
-                if os.path.exists(path):
-                    os.remove(path)
-            except Exception:
-                pass
-
-    # Remove from in-memory caches
-    DATASETS.pop(file_id, None)
-    SESSION_CONTEXT.pop(file_id, None)
-
-    deleted = db.delete_file(file_id)
+async def delete_file(file_id: str, current_user: dict = Depends(get_current_user)):
+    """Permanently delete a file session and all its chat history (owner only)."""
+    file_record = await db.get_file(file_id)
+    if not file_record or file_record.get("user_id") != current_user["id"]:
+        raise HTTPException(404, "File not found.")
+    for path in [file_record["filepath"], file_record["filepath"].replace("_clean.csv", "")]:
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except Exception:
+            pass
+    cache.clear_df_cache(file_id)
+    deleted = await db.delete_file(file_id, current_user["id"])
     if not deleted:
         raise HTTPException(404, "File not found.")
     return {"success": True, "file_id": file_id}
@@ -160,7 +164,7 @@ async def delete_file(file_id: str, current_user=Depends(get_current_user)):
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     try:
         file_ext = file.filename.rsplit(".", 1)[-1].lower()
@@ -192,14 +196,14 @@ async def upload_file(
         df_clean.to_csv(clean_path, index=False)
 
         # Save to DB
-        db.save_file(
+        await db.save_file(
             file_id=file_id,
             filename=file.filename,
             filepath=clean_path,
             rows=raw_stats["rows"],
             columns=raw_stats["columns"],
             quality_score=score,
-            user_id=current_user["id"] if current_user else None,
+            user_id=current_user["id"],
         )
 
         return {
@@ -221,174 +225,317 @@ async def upload_file(
 
 # ─── QUERY ENDPOINT ───────────────────────────────────────────────────────────
 
-# In-memory dataset cache (file_id -> DataFrame + metadata)
-DATASETS = {}
+async def _load_dataset(file_id: str, user_id: str) -> dict:
+    """Load dataset metadata and cache DataFrame in memory (owner only)."""
+    df = cache.get_df_cache(file_id)
 
+    file_record = await db.get_file(file_id)
+    if not file_record or file_record.get("user_id") != user_id:
+        raise HTTPException(404, "Dataset not found. Please re-upload.")
 
-def _load_dataset(file_id: str) -> dict:
-    """Load dataset from cache or DB fallback."""
-    if file_id in DATASETS:
-        return DATASETS[file_id]
+    if df is None:
+        filepath = file_record["filepath"]
+        if not os.path.exists(filepath):
+            raise HTTPException(404, "Dataset file missing on server. Please re-upload.")
+        df = pd.read_csv(filepath)
+        # 2. Cache back to memory
+        cache.set_df_cache(file_id, df)
 
-    file_record = db.get_file(file_id)
-    if not file_record:
-        raise HTTPException(404, "Dataset not found. Please re-upload the file.")
-
-    filepath = file_record["filepath"]
-    if not os.path.exists(filepath):
-        raise HTTPException(404, f"Dataset file missing on server. Please re-upload.")
-
-    df = pd.read_csv(filepath)
     meta = {
         "filename": file_record["filename"],
         "columns": df.columns.tolist(),
-        "path": filepath,
+        "path": file_record["filepath"],
         "score": file_record["quality_score"],
         "column_details": detect_column_types(df),
         "stats": {"rows": len(df), "columns": len(df.columns)},
+        "df": df # Return the DF object for the caller
     }
-    DATASETS[file_id] = meta
     return meta
+
+
+@app.get("/suggestions/{file_id}")
+async def get_suggestions(file_id: str, current_user: dict = Depends(get_current_user)):
+    """Fetch or generate dynamic AI suggestions for a specific dataset."""
+    # 1. Check Cache
+    cached = cache.get_json_cache(f"suggestions_{file_id}")
+    if cached: return cached
+
+    # 2. Load Metadata
+    try:
+        meta = await _load_dataset(file_id, current_user["id"])
+        df = meta["df"]
+        cols = meta["columns"]
+        sample = df.head(3).replace({np.nan: None}).to_dict(orient="records")
+        
+        # 3. Generate with AI
+        suggestions = ai.generate_dataset_suggestions(cols, sample)
+        
+        # 4. Cache and Return
+        cache.set_json_cache(f"suggestions_{file_id}", suggestions)
+        return suggestions
+    except Exception as e:
+        print(f"Suggestions API Error: {e}")
+        return ["Show data distribution", "Compare categories", "Analyze trends"]
+
+
+def _merge_chart_memory(
+    prompt: str, intent: Dict[str, Any], memory: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Reuse last chart columns when the user sends a follow-up (e.g. only 'change to line chart').
+    Session memory is keyed by file_id in cache.
+    """
+    if not memory:
+        return intent
+    out = {**intent}
+    mem_x = memory.get("x_column")
+    mem_ys = memory.get("y_columns") or []
+    if not mem_ys and memory.get("y_column"):
+        mem_ys = [memory["y_column"]]
+    mem_ys = [c for c in mem_ys if c]
+
+    xa = out.get("x_axis") or out.get("x_column")
+    ya = out.get("y_axes") or []
+    if not ya and out.get("y_axis"):
+        ya = [out.get("y_axis")]
+    ya = [c for c in ya if c]
+
+    ya_was_empty = not ya
+    x_was_empty = not xa
+
+    if mem_x and x_was_empty:
+        out["x_axis"] = mem_x
+        out["x_column"] = mem_x
+    if mem_ys and ya_was_empty:
+        out["y_axes"] = mem_ys
+        out["y_axis"] = mem_ys[0]
+
+    if not out.get("aggregation") and memory.get("aggregation"):
+        out["aggregation"] = memory["aggregation"]
+
+    # If we had to restore Y from memory, treat as chart-only follow-up and lock chart_type from wording
+    if ya_was_empty and mem_ys:
+        pl = prompt.lower()
+        if any(k in pl for k in ("line chart", "line graph", "to line", "as a line")):
+            out["chart_type"] = "line"
+        elif any(k in pl for k in ("bar chart", "to bar", "as a bar")):
+            out["chart_type"] = "bar"
+        elif any(k in pl for k in ("pie chart", "to pie", "as a pie")):
+            out["chart_type"] = "pie"
+        elif any(k in pl for k in ("area chart", "to area", "as an area")):
+            out["chart_type"] = "area"
+        elif "scatter" in pl:
+            out["chart_type"] = "scatter"
+
+    # User explicitly asked to change chart type; LLM may have left the previous chart_type
+    pl_all = prompt.lower()
+    wants_chart_change = memory and any(
+        v in pl_all
+        for v in (
+            "change",
+            "switch",
+            "make it",
+            "convert",
+            "instead",
+            "turn into",
+            "to line",
+            "to bar",
+            "to pie",
+            "to area",
+        )
+    )
+    if wants_chart_change:
+        if any(k in pl_all for k in ("line chart", "line graph", "to line", "as a line")):
+            out["chart_type"] = "line"
+        elif any(k in pl_all for k in ("bar chart", "to bar", "as a bar")):
+            out["chart_type"] = "bar"
+        elif any(k in pl_all for k in ("pie chart", "to pie", "as a pie")):
+            out["chart_type"] = "pie"
+        elif any(k in pl_all for k in ("area chart", "to area", "as an area")):
+            out["chart_type"] = "area"
+        elif "scatter" in pl_all:
+            out["chart_type"] = "scatter"
+
+    return out
+
+
+@app.post("/chart/recompute")
+async def recompute_chart(
+    file_id: str = Body(...),
+    x_col: str = Body(...),
+    y_cols: List[str] = Body(...),
+    aggregation: str = Body(...),
+    chart_type: str = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Instant re-calculation of chart data with new aggregation/columns."""
+    try:
+        meta = await _load_dataset(file_id, current_user["id"])
+        df = meta["df"]
+        
+        # Perform recompute using the core data engine
+        chart_data = _generate_chart_data(df, chart_type, x_col, y_cols, aggregation)
+        
+        return {
+            "chart_data": chart_data,
+            "aggregation": aggregation,
+            "success": True
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Recompute error: {str(e)}")
 
 
 @app.post("/query")
 async def process_query(
     prompt: str = Body(...),
     file_id: str = Body(...),
-    current_user=Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     t_start = time.time()
+    user_id = current_user["id"]
 
-    metadata = _load_dataset(file_id)
-    df = pd.read_csv(metadata["path"])
+    # 1. Load Data (In-Memory Caching enabled) — owner only
+    metadata = await _load_dataset(file_id, user_id)
+    await db.log_user_query(user_id, prompt)
+    df = metadata["df"]
 
-    # Context from session + DB fallback
-    last_context = SESSION_CONTEXT.get(file_id)
-    if not last_context:
-        last_context = db.get_context(file_id)
-        if last_context:
-            # Map DB fields to expected keys
-            last_context = {
-                "chart_type": last_context.get("last_chart_type"),
-                "x_column": last_context.get("last_x"),
-                "y_column": last_context.get("last_y"),
-                "custom_color": last_context.get("last_color"),
-                "found_columns": last_context.get("found_columns", []),
-            }
+    # Last successful chart for this file (follow-ups like "change to line chart")
+    session_memory = cache.get_session_memory(file_id)
+    
+    # 2. Prepare Sample for LLM
+    # We send columns and 3 sample rows to give the LLM context.
+    sample_data = df.head(3).replace({np.nan: None}).to_dict(orient="records")
+    
+    # 3. Call AI Engine (LLM) — include session memory so follow-ups inherit columns
+    intent = ai.parse_with_llm(
+        prompt, metadata["columns"], sample_data, previous_context=session_memory
+    )
+    intent = _merge_chart_memory(prompt, intent, session_memory)
+    
+    # --- POLITE REFUSAL FOR MISSING COLUMNS ---
+    missing = intent.get("missing_columns", [])
+    if missing:
+        return {
+            "error": True,
+            "message": f"I couldn't find the following columns in your dataset: {', '.join(missing)}. Please check the names and try again!",
+            "suggestions": [f"Available columns: {', '.join(metadata['columns'][:10])}..."]
+        }
 
-    # Check for ML intent BEFORE NLP parsing
-    ml_intent = detect_ml_intent(prompt)
+    if intent.get("error"):
+        return {
+            "error": True,
+            "message": f"AI Error: {intent.get('message')}",
+            "suggestions": ["Try rephrasing your question.", "Check if columns are mentioned correctly."]
+        }
 
-    # Parse NLP intent
-    intent_data = parse_prompt(prompt, metadata["columns"], last_context=last_context)
-
-    # Handle dashboard intent
-    if intent_data.get("is_dashboard"):
-        return await _generate_dashboard_response(df, metadata, file_id)
-
-    # If ML intent detected, run ML pipeline
-    if ml_intent:
+    # 4. Handle ML Logic (If requested)
+    if intent.get("is_ml") or intent.get("chart_type") == "ml_forecast":
+        # Use detect_ml_intent for accurate ML type detection
+        detected = detect_ml_intent(prompt)
+        ml_intent = detected if detected else {
+            "ml_type": "forecast" if "forecast" in intent.get("chart_type", "").lower() else "regression",
+            "description": intent.get("reasoning", "")
+        }
+        x_col_ml = intent.get("x_axis") or intent.get("x_column")
+        y_cols_ml = intent.get("y_axes") or ([intent.get("y_axis")] if intent.get("y_axis") else [])
+        y_col_ml = y_cols_ml[0] if y_cols_ml else None
         return await _handle_ml_query(
             df=df,
             ml_intent=ml_intent,
-            intent_data=intent_data,
+            intent_data={
+                "x_column": x_col_ml,
+                "y_column": y_col_ml,
+                "found_columns": [x_col_ml] + y_cols_ml if x_col_ml else y_cols_ml,
+            },
             metadata=metadata,
             file_id=file_id,
             prompt=prompt,
             t_start=t_start,
+            user_id=user_id,
         )
 
-    # Standard visualization query
-    if not intent_data["found_columns"] and not intent_data.get("custom_color"):
-        return {
-            "error": True,
-            "message": "I couldn't identify any relevant columns in your prompt. Please mention column names.",
-            "suggestions": [f"Show {c} distribution" for c in metadata["columns"][:4]],
-        }
-
-    # Apply year filter if present
-    year_filter = intent_data.get("year_filter")
-    if year_filter:
-        for col in df.columns:
-            try:
-                df_dates = pd.to_datetime(df[col], errors="coerce")
-                if df_dates.notna().mean() > 0.5:
-                    df = df[df_dates.dt.year == year_filter]
-                    break
-            except Exception:
-                pass
-
-    chart_data, insights_result = [], {}
-    x_col   = intent_data.get("x_column")
-    y_col   = intent_data.get("y_column")
-    chart_type = intent_data["chart_type"]
-    custom_color = intent_data.get("custom_color")
-    aggregation = intent_data.get("aggregation", "sum")
-
     try:
-        is_numeric_x = pd.api.types.is_numeric_dtype(df[x_col]) if x_col and x_col in df.columns else False
-        is_numeric_y = pd.api.types.is_numeric_dtype(df[y_col]) if y_col and y_col in df.columns else False
+        # 5. Extract variables from intent
+        chart_type  = intent.get("chart_type", "bar")
+        x_col       = intent.get("x_axis") or intent.get("x_column")
+        aggregation = intent.get("aggregation") or "sum"
 
-        # ── Validation for explicit chart types ───────────────────────────────
-        if intent_data.get("is_explicit"):
-            if chart_type in ("line", "area", "scatter") and not x_col:
+        y_cols = intent.get("y_axes") or []
+        if not y_cols and intent.get("y_axis"):
+            y_cols = [intent.get("y_axis")]
+        # Ensure y_cols contains only non-None strings
+        y_cols = [c for c in y_cols if c]
+        y_col  = y_cols[0] if y_cols else None
+
+        # Guard: need at least x and y
+        if not x_col or not y_cols:
+            return {
+                "error": True,
+                "message": "Could not determine which columns to visualize. Please mention specific column names.",
+                "suggestions": [f"Available columns: {', '.join(metadata['columns'][:10])}"],
+            }
+
+        # Fuzzy rescue for columns not found exactly
+        from thefuzz import process as fuzz_process
+        if x_col not in df.columns:
+            match = fuzz_process.extractOne(x_col, df.columns.tolist())
+            if match and match[1] > 75:
+                x_col = match[0]
+            else:
                 return {
                     "error": True,
-                    "message": f"{chart_type.title()} chart requires an X-axis column (usually time or numeric). {intent_data['reasoning']}",
-                    "suggestions": ["Specify the X column in your prompt.", "Try a bar chart instead."],
-                }
-            if chart_type in ("pie", "donut") and (not x_col or not y_col):
-                return {
-                    "error": True,
-                    "message": "Pie/Donut chart requires both a category (X) and a value (Y) column.",
-                    "suggestions": [f"Try: 'Show {metadata['columns'][0]} breakdown'"],
+                    "message": f"Column '{x_col}' not found. Available: {', '.join(metadata['columns'][:10])}",
+                    "suggestions": [],
                 }
 
-        # ── Data Generation ────────────────────────────────────────────────────
-        chart_data = _generate_chart_data(df, chart_type, x_col, y_col, is_numeric_x, is_numeric_y, aggregation)
+        fixed_y = []
+        for col in y_cols:
+            if col in df.columns:
+                fixed_y.append(col)
+            else:
+                match = fuzz_process.extractOne(col, df.columns.tolist())
+                if match and match[1] > 75:
+                    fixed_y.append(match[0])
+        y_cols = fixed_y if fixed_y else y_cols
+        y_col  = y_cols[0] if y_cols else None
 
-        # ── Insights ───────────────────────────────────────────────────────────
-        insights_result = generate_insights(df, intent_data, chart_data)
+        chart_data = _generate_chart_data(df, chart_type, x_col, y_cols, aggregation)
 
-        # ── Update Context ─────────────────────────────────────────────────────
-        new_context = {
+        # 6. Insights
+        insights_list = intent.get("insights") or ["Analysis complete."]
+
+        # 7. Update Session Memory
+        cache.set_session_memory(file_id, {
             "chart_type": chart_type,
             "x_column": x_col,
             "y_column": y_col,
-            "custom_color": custom_color,
-            "found_columns": intent_data["found_columns"],
-        }
-        SESSION_CONTEXT[file_id] = new_context
-        db.save_context(file_id, chart_type, x_col, y_col, custom_color, intent_data["found_columns"])
+            "y_columns": y_cols,
+            "aggregation": aggregation,
+        })
 
-        # ── Save Chat to DB ────────────────────────────────────────────────────
+        # 8. Save Chat Record
         chat_id = str(uuid.uuid4())
-        db.save_chat(
+        await db.save_chat(
             chat_id=chat_id,
             file_id=file_id,
+            user_id=user_id,
             user_prompt=prompt,
             chart_type=chart_type,
             x_column=x_col,
             y_column=y_col,
             aggregation=aggregation,
             chart_data=chart_data,
-            insights=insights_result.get("insights", []),
-            kpis=insights_result.get("kpis"),
-            summary=insights_result.get("summary"),
-            color=custom_color,
-            confidence=intent_data.get("confidence"),
-            reasoning=intent_data.get("reasoning"),
+            insights=insights_list,
+            summary=intent.get("reasoning"),
+            reasoning=intent.get("reasoning"),
         )
 
         elapsed = round(time.time() - t_start, 3)
         return {
-            "intent": intent_data,
+            "intent": intent,
             "chart_data": chart_data,
-            "insights": insights_result.get("insights", []),
-            "kpis": insights_result.get("kpis"),
-            "summary": insights_result.get("summary", ""),
-            "custom_color": custom_color,
-            "confidence": intent_data.get("confidence"),
+            "insights": insights_list,
+            "summary": intent.get("reasoning"),
             "chat_id": chat_id,
             "response_time": elapsed,
             "error": False,
@@ -399,8 +546,8 @@ async def process_query(
         traceback.print_exc()
         return {
             "error": True,
-            "message": f"Couldn't generate chart: {str(e)}",
-            "suggestions": ["Check column names", "Try a simpler query"],
+            "message": f"Visualization Error: {str(e)}",
+            "suggestions": ["Try a different chart type.", "Verify column names."],
         }
 
 
@@ -408,18 +555,22 @@ def _generate_chart_data(
     df: pd.DataFrame,
     chart_type: str,
     x_col: Optional[str],
-    y_col: Optional[str],
-    is_numeric_x: bool,
-    is_numeric_y: bool,
+    y_cols: List[str],
     aggregation: str = "sum",
 ):
-    """Core data generation with aggregation support."""
+    """Core data generation supporting multiple series (multi-column Y)."""
     chart_data = []
+    if not x_col or not y_cols: return []
 
     AGG_FUNCS = {"sum": "sum", "avg": "mean", "count": "count", "max": "max", "min": "min"}
     agg_fn = AGG_FUNCS.get(aggregation, "sum")
 
+    # Filter to only existing columns to prevent crashes
+    y_cols = [c for c in y_cols if c in df.columns]
+    if not y_cols: return []
+
     if chart_type == "histogram" and x_col:
+        is_numeric_x = pd.api.types.is_numeric_dtype(df[x_col])
         if is_numeric_x:
             counts, bins = np.histogram(df[x_col].dropna(), bins=15)
             chart_data = [
@@ -429,45 +580,46 @@ def _generate_chart_data(
         else:
             raise ValueError("Histogram requires numeric data.")
 
-    elif chart_type == "scatter" and x_col and y_col:
-        sample_df = df[[x_col, y_col]].dropna().sample(min(200, len(df)), random_state=42)
+    elif chart_type == "scatter" and x_col and len(y_cols) >= 1:
+        y_col = y_cols[0]
+        sample_size = min(500, len(df))
+        sample_df = df[[x_col, y_col]].dropna().sample(sample_size, random_state=42)
         chart_data = sample_df.replace({np.nan: None}).to_dict(orient="records")
 
-    elif chart_type in ("line", "area") and x_col and y_col:
-        try:
-            df = df.copy()
-            df[x_col] = pd.to_datetime(df[x_col])
-            grouped = df.groupby(x_col)[y_col]
-            grouped = getattr(grouped, agg_fn)().reset_index().sort_values(x_col)
-            grouped[x_col] = grouped[x_col].dt.strftime("%Y-%m-%d")
-        except Exception:
-            grouped = df.groupby(x_col)[y_col]
+    elif x_col and y_cols:
+        # Check if all Y columns are numeric
+        numeric_y = [c for c in y_cols if pd.api.types.is_numeric_dtype(df[c])]
+        
+        if numeric_y:
+            grouped = df.groupby(x_col)[numeric_y]
             grouped = getattr(grouped, agg_fn)().reset_index()
-            if is_numeric_x:
-                grouped = grouped.sort_values(x_col)
-        chart_data = grouped.replace({np.nan: None}).to_dict(orient="records")
+            
+            # Sort by first Y column descending for better viz
+            grouped = grouped.sort_values(numeric_y[0], ascending=False)
+            
+            if chart_type in ("bar", "pie", "donut") and len(grouped) > 30:
+                grouped = grouped.head(30)
+            
+            # For time series, sort by X
+            if chart_type in ("line", "area"):
+                try:
+                    df_temp = grouped.copy()
+                    df_temp[x_col] = pd.to_datetime(df_temp[x_col])
+                    grouped = df_temp.sort_values(x_col)
+                    grouped[x_col] = grouped[x_col].dt.strftime("%Y-%m-%d")
+                except:
+                    pass
 
-    elif x_col and y_col:
-        if is_numeric_y:
-            grouped = df.groupby(x_col)[y_col]
-            grouped = getattr(grouped, agg_fn)().reset_index()
-            grouped = grouped.sort_values(y_col, ascending=False)
-            if chart_type in ("bar", "pie", "donut") and len(grouped) > 20:
-                grouped = grouped.head(20)
             chart_data = grouped.replace({np.nan: None}).to_dict(orient="records")
         else:
+            # Fallback to count if non-numeric
             grouped = df.groupby(x_col).size().reset_index(name="count")
-            chart_data = grouped.sort_values("count", ascending=False).head(20).to_dict(orient="records")
-
-    elif x_col:
-        grouped = df[x_col].value_counts().reset_index()
-        grouped.columns = [x_col, "count"]
-        chart_data = grouped.head(15).to_dict(orient="records")
+            chart_data = grouped.sort_values("count", ascending=False).head(30).to_dict(orient="records")
 
     return chart_data
 
 
-async def _handle_ml_query(df, ml_intent, intent_data, metadata, file_id, prompt, t_start):
+async def _handle_ml_query(df, ml_intent, intent_data, metadata, file_id, prompt, t_start, user_id: str):
     """Route to ML engine and format response."""
     ml_result = run_ml(
         df=df,
@@ -486,9 +638,10 @@ async def _handle_ml_query(df, ml_intent, intent_data, metadata, file_id, prompt
 
     # Save ML chat to DB
     chat_id = str(uuid.uuid4())
-    db.save_chat(
+    await db.save_chat(
         chat_id=chat_id,
         file_id=file_id,
+        user_id=user_id,
         user_prompt=prompt,
         chart_type=ml_result.get("chart_type", "line"),
         x_column=ml_result.get("x_key"),
@@ -509,7 +662,6 @@ async def _handle_ml_query(df, ml_intent, intent_data, metadata, file_id, prompt
         "chart_data": ml_result.get("data", []),
         "insights": [ml_result.get("summary", "")],
         "summary": ml_result.get("summary", ""),
-        "confidence": 0.85,
         "chat_id": chat_id,
         "response_time": elapsed,
         "error": False,
@@ -570,23 +722,19 @@ async def _generate_dashboard_response(df, metadata, file_id):
             "title": f"{num_cols[0]} vs {num_cols[1]}",
         })
 
-    # KPIs from first numeric column
-    kpis = {}
-    if num_cols:
-        s = df[num_cols[0]].dropna()
-        kpis = {
-            "column": num_cols[0],
-            "total": round(float(s.sum()), 2),
-            "average": round(float(s.mean()), 2),
-            "max": round(float(s.max()), 2),
-            "min": round(float(s.min()), 2),
-            "count": int(s.count()),
-        }
+    # Generate smart insights using the insight engine
+    insight_intent = {
+        "x_column": cat_cols[0] if cat_cols else None,
+        "y_column": num_cols[0] if num_cols else None,
+        "chart_type": "bar",
+    }
+    insight_result = generate_insights(df, insight_intent, dashboard_charts[0]["data"] if dashboard_charts else None)
+    insights_list = insight_result.get("insights", [])
 
     return {
         "is_dashboard": True,
         "dashboard_charts": dashboard_charts,
-        "kpis": kpis,
+        "insights": insights_list,
         "summary": f"Dashboard overview for {metadata['filename']} with {len(df):,} records.",
         "error": False,
     }
@@ -595,41 +743,90 @@ async def _generate_dashboard_response(df, metadata, file_id):
 # ─── HISTORY ENDPOINTS ─────────────────────────────────────────────────────────
 
 @app.get("/history/{file_id}")
-async def get_history(file_id: str):
-    """Return full chat history for a file session."""
-    chats = db.get_chat_history(file_id)
+async def get_history(file_id: str, current_user: dict = Depends(get_current_user)):
+    """Return full chat history for a file session (owner only)."""
+    chats = await db.get_chat_history(file_id, current_user["id"])
     return {"file_id": file_id, "chats": chats, "count": len(chats)}
 
 
 @app.get("/chat/{chat_id}")
-async def get_chat(chat_id: str):
-    """Return a single chat record."""
-    chat = db.get_chat(chat_id)
+async def get_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
+    """Return a single chat record (owner only)."""
+    chat = await db.get_chat(chat_id, current_user["id"])
     if not chat:
         raise HTTPException(404, "Chat not found.")
     return chat
 
 
-@app.post("/restore-context")
-async def restore_context(file_id: str = Body(...)):
-    """Restore context for a previous session into in-memory store."""
-    ctx = db.get_context(file_id)
-    if ctx:
-        SESSION_CONTEXT[file_id] = {
-            "chart_type": ctx.get("last_chart_type"),
-            "x_column": ctx.get("last_x"),
-            "y_column": ctx.get("last_y"),
-            "custom_color": ctx.get("last_color"),
-            "found_columns": ctx.get("found_columns", []),
-        }
-    return {"restored": bool(ctx), "file_id": file_id}
+# Legacy context restoration removed. In-memory cache handles persistence.
 
 
 # ─── DASHBOARD ENDPOINT ────────────────────────────────────────────────────────
 
 @app.get("/dashboard/{file_id}")
-async def get_dashboard(file_id: str):
+async def get_dashboard(file_id: str, current_user: dict = Depends(get_current_user)):
     """Generate quick multi-chart dashboard for a dataset."""
-    metadata = _load_dataset(file_id)
-    df = pd.read_csv(metadata["path"])
-    return await _generate_dashboard_response(df, metadata, file_id)
+    metadata = await _load_dataset(file_id, current_user["id"])
+    df = metadata["df"]
+    columns = metadata["columns"]
+    num_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
+    cat_cols = [c for c in columns if not pd.api.types.is_numeric_dtype(df[c])]
+    result = await _generate_dashboard_response(df, metadata, file_id)
+    result["columns"] = columns
+    result["num_cols"] = num_cols
+    result["cat_cols"] = cat_cols
+    return result
+
+
+@app.post("/dashboard/chart")
+async def build_dashboard_chart(
+    file_id: str = Body(...),
+    chart_type: str = Body(...),
+    x_col: str = Body(...),
+    y_col: str = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Build a single chart panel with user-chosen columns and type."""
+    try:
+        meta = await _load_dataset(file_id, current_user["id"])
+        df = meta["df"]
+        data = _generate_chart_data(df, chart_type, x_col, [y_col], "sum")
+        return {"success": True, "data": data, "x_key": x_col, "y_key": y_col, "chart_type": chart_type}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/restore-context")
+async def restore_context(
+    file_id: str = Body(embed=True),
+    current_user: dict = Depends(get_current_user),
+):
+    """Verify file access and warm dataset cache."""
+    await _load_dataset(file_id, current_user["id"])
+    return {"status": "ok", "file_id": file_id}
+
+
+# ─── STATIC FILE SERVING ────────────────────────────────────────────────────────
+# Instead of a separate frontend server, the backend can serve the pre-built React app.
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "client", "dist")
+
+if os.path.exists(STATIC_DIR):
+    print(f"[GVS DataNova] Serving pre-built Frontend from: {STATIC_DIR}")
+    # Serve static assets (JS, CSS)
+    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Catch-all: serve index.html for any non-API route (SPA routing)."""
+        # Exclude common API-like paths from SPA routing if they don't exist
+        if full_path.startswith("api/") or full_path in ["login", "signup", "upload", "query"]:
+             raise HTTPException(status_code=404, detail="API route not found")
+             
+        file_path = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+else:
+    print(f"⚠️  WARNING: Pre-built Frontend (client/dist) NOT FOUND at {STATIC_DIR}")
+    print(f"👉 To use the integrated UI, run 'cd client; npm run build' first.")
+    print(f"👉 Otherwise, run the Frontend separately with 'cd client; npm run dev'")

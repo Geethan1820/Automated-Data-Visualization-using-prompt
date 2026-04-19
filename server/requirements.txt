@@ -9,3 +9,9 @@ python-Levenshtein
 scikit-learn
 python-jose[cryptography]
 passlib[bcrypt]
+sqlalchemy[asyncio]
+aiosqlite
+asyncpg
+python-dotenv
+google-generativeai
+pyarrow

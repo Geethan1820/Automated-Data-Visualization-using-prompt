@@ -1,285 +1,49 @@
 ================================================================================
-PROJECT TITLE:
-Intelligent Prompt-Based Automatic Data Analytics and Visualization System
-                             (GVS DataNova)
+PROJECT TITLE: GVS DataNova (Intelligent Data Analytics)
 ================================================================================
-Last Updated: February 2026
 
-1. ABSTRACT
+1. WHAT IS THIS PROJECT?
 --------------------------------------------------------------------------------
-In the era of big data, extracting meaningful insights from raw datasets is
-often complex and time-consuming, requiring expertise in data science tools.
-"GVS DataNova" democratizes data analysis by bridging the gap between natural
-language and technical execution. Users upload raw datasets (CSV/Excel) and
-interact with them using simple English prompts (e.g., "Show me the sales
-trend over time"). Using a robust Python/FastAPI backend and a React-based
-interactive frontend, the system automatically cleans data, interprets user
-intent, and instantly generates relevant, customizable visualizations without
-writing a single line of code. The system also supports follow-up prompts,
-context memory, color customization, chart export, and PDF reporting.
+DataNova is a smart tool that helps you understand data files (like Excel or CSV) 
+without needing to be a math or coding expert. You just upload your file and 
+chat with the AI to get answers and charts instantly.
 
-2. INTRODUCTION
+2. WHY WAS IT BUILT? (PROBLEM STATEMENT)
 --------------------------------------------------------------------------------
-2.1 Problem Statement:
-Traditional data analytics tools (Tableau, PowerBI, Python/R) have a steep
-learning curve. Non-technical users struggle to visualize their data quickly.
-Existing solutions often lack an intuitive, "conversational" interface for
-immediate chart generation.
+Traditional data tools are too hard for many people. Most users struggle to:
+- Clean messy data.
+- Create professional charts quickly.
+- Understand what the numbers are actually saying.
 
-2.2 Objectives:
-- To develop a web-based platform for easy data upload and automated
-  preprocessing with a data quality score.
-- To implement an intelligent NLP parsing engine that translates natural
-  language prompts into analytical queries using fuzzy matching.
-- To provide instant, interactive, and customizable visualizations based on
-  user queries.
-- To support context memory for follow-up prompts (e.g., "Change it to blue").
-- To enable users to export charts as PNG/JPG and download full PDF reports.
+DataNova solves this by using "Natural Language Processing"—meaning you can 
+talk to your data like you're talking to a friend.
 
-2.3 Scope:
-The system supports structured tabular data (CSV/Excel). It focuses on
-descriptive analytics (What happened?) through visualization. It is designed
-for students, business analysts, and researchers who need quick insight
-extraction without coding.
-
-3. SYSTEM ANALYSIS
+3. KEY FEATURES
 --------------------------------------------------------------------------------
-3.1 Existing System:
-- Manual coding (Pandas, Matplotlib) requires programming skills.
-- GUI-based tools (Excel) are cumbersome for large datasets and lack
-  prompt-based automation.
-- SaaS tools (Tableau Public) require training and often cost money.
+- 🤖 SMART CHAT: Ask questions like "Show me sales by region" to get an answer.
+- 📊 AUTO-VISUALS: Beautiful, interactive charts appear automatically.
+- 💾 SAVE & RESTORE: Your work is saved. Log in any time to see your old chats.
+- 🔒 AUDIT LOGS: The system keeps track of all questions asked for security.
+- 💎 PREMIUM THEME: High-end "Midnight Emerald" visual design.
 
-3.2 Proposed System:
-- Automated Data Cleaning: Handle missing values, type detection, and data
-  quality scoring automatically.
-- NLP-Driven with Fuzzy Matching: Users type what they want; the engine
-  matches column names even with partial or misspelled input (using thefuzz).
-- Context Memory: Follow-up prompts like "make it a line chart" or "use blue"
-  are understood and applied without repeating the full prompt.
-- Web-Accessible: No installation required; accessible via any modern browser.
-
-3.3 Feasibility Study:
-- Technical: Built using standard, well-documented, open-source technologies
-  (React + Vite, Python FastAPI).
-- Economic: Low cost; relies entirely on free and open-source libraries.
-- Operational: Intuitive three-stage UI (Upload -> Preview -> Dashboard)
-  minimizes training needs.
-
-4. SYSTEM REQUIREMENTS
+4. TECHNOLOGY USED
 --------------------------------------------------------------------------------
-4.1 Hardware Requirements:
-- Processor: Intel Core i5 or higher (recommended for backend processing).
-- RAM: 8GB or higher (for handling datasets in memory with Pandas).
-- Storage: 500MB free space (for uploaded datasets and Python packages).
+- VISUALS: React (Modern JavaScript framework)
+- BRAIN: Python & FastAPI
+- AI: Google Gemini (Advanced Language Model)
+- STORAGE: PostgreSQL Database
 
-4.2 Software Requirements:
-- Operating System: Windows 10/11, Linux, or macOS.
-- Frontend: Node.js v18+, npm, Web Browser (Chrome / Edge / Firefox).
-- Backend: Python 3.8+, pip.
-- IDE: VS Code (recommended; a .vscode/launch.json is included).
-
-4.3 Runtime Dependencies:
-- Backend (server/requirements.txt):
-  fastapi, uvicorn, pandas, openpyxl, python-multipart, numpy,
-  thefuzz, python-Levenshtein
-- Frontend (client/package.json — key libraries):
-  react, react-dom, recharts, axios, framer-motion, lucide-react,
-  jspdf, html2canvas, tailwindcss
-
-5. SYSTEM ARCHITECTURE
+5. HOW TO RUN THE PROJECT (SIMPLE STEPS)
 --------------------------------------------------------------------------------
-The system follows a decoupled Client-Server architecture:
-
-  [ Browser (React/Vite) ]  <--- JSON / REST --->  [ FastAPI Server (Python) ]
-                                                              |
-                                                   [ Pandas / NumPy Engine ]
-                                                              |
-                                                   [ /data/ (Cleaned CSVs) ]
-
-5.1 Project Structure:
-  finalyearproject/
-  ├── client/                   # React Frontend (Vite)
-  │   └── src/
-  │       ├── App.jsx            # Root component; manages view routing
-  │       ├── context/
-  │       │   └── ThemeContext.jsx  # Dark/Light mode context provider
-  │       └── components/
-  │           ├── Upload.jsx      # File drag-and-drop upload UI
-  │           ├── DataPreview.jsx # Tabular preview + quality stats
-  │           ├── Chat.jsx        # Prompt chat interface + history
-  │           ├── ChartDisplay.jsx# Recharts-based chart rendering
-  │           └── Sidebar.jsx     # Navigation, history, theme toggle
-  ├── server/                   # Python FastAPI Backend
-  │   ├── main.py               # API routes: /upload, /query
-  │   └── modules/
-  │       ├── nlp_engine.py     # Intent parsing + fuzzy column matching
-  │       └── data_processor.py # Data cleaning + quality score calc
-  └── data/                     # Uploaded/cleaned datasets (runtime)
-
-5.2 Full Tech Stack:
-  Frontend:
-    - Framework:        React 18 with Vite
-    - Styling:          Tailwind CSS + custom dark/light theme
-    - State:            React Hooks (useState, useContext)
-    - Visualizations:   Recharts (Bar, Line, Area, Pie, Donut, Scatter,
-                        Histogram, Box, Heatmap)
-    - HTTP Client:      Axios
-    - Icons:            Lucide-React
-    - Animations:       Framer Motion
-    - Export:           jsPDF + html2canvas
-
-  Backend:
-    - Framework:        FastAPI (Python)
-    - Server:           Uvicorn (ASGI)
-    - Data:             Pandas, NumPy, OpenPyXL
-    - NLP/Matching:     thefuzz (FuzzyWuzzy), python-Levenshtein
-    - File Handling:    python-multipart
-    - Session Storage:  In-memory Python dict (SESSION_CONTEXT)
-
-6. API ENDPOINTS
---------------------------------------------------------------------------------
-  GET  /
-    - Health check. Returns: {"message": "GVS DataNova Backend is Running"}
-
-  POST /upload
-    - Accepts: multipart/form-data (CSV or XLSX file)
-    - Returns: file_id, filename, columns[], score, stats (rows, cols,
-               missing), column_details[], preview (first 10 rows)
-
-  POST /query
-    - Body: { "prompt": "...", "file_id": "..." }
-    - Returns: intent object (chart_type, x_column, y_column),
-               chart_data[], summary, insights[], custom_color, error flag
-
-7. MODULES DESCRIPTION
---------------------------------------------------------------------------------
-7.1 Data Upload & Preprocessing Module (Upload.jsx + data_processor.py):
-  - Accepts CSV and XLSX files via drag-and-drop or click.
-  - Validates format, reads with Pandas, cleans missing values.
-  - Calculates a "Data Quality Score" (0-100%) based on completeness.
-  - Each upload generates a unique UUID-based file_id for session tracking.
-  - Cleaned dataset is saved to /data/{file_id}_clean.csv server-side.
-
-7.2 Data Preview Module (DataPreview.jsx + /upload endpoint):
-  - Displays column names, data types, and missing value counts.
-  - Shows a paginated/scrollable table of the first 10 rows.
-  - Shows overall row/column stats and data quality score.
-  - User clicks "Continue to Analysis" to enter the chat dashboard.
-
-7.3 Prompt Parsing Engine / NLP Engine (nlp_engine.py):
-  - Function: parse_prompt(prompt, columns, last_context)
-  - Step 1: Fuzzy-match column names in the prompt using thefuzz
-    (confidence threshold: 75%). Matches even partial/misspelled names.
-  - Step 2: Detect color keywords (red, blue, green, etc.) for chart styling.
-  - Step 3: Strict chart type detection (e.g., "pie chart", "bar graph").
-  - Step 4: Intent-based chart detection from keyword mappings:
-      "trend", "over time", "growth"       -> Line Chart
-      "distribution", "frequency", "spread"-> Histogram
-      "composition", "share", "percentage" -> Pie Chart
-      "donut", "doughnut"                  -> Donut Chart
-      "area", "cumulative"                 -> Area Chart
-      "correlation", "vs", "relationship"  -> Scatter Plot
-      "heatmap", "matrix", "intensity"     -> Heatmap
-      "box", "outliers", "quartile"        -> Box Plot
-      Default                              -> Bar Chart
-  - Step 5: Context memory — if prompt is vague (e.g., "make it red"),
-    reuse columns and chart type from the previous query of that session.
-  - Step 6: Auto-assign X/Y columns; time-series columns are auto-detected
-    from column name keywords (date, time, year, month, day, quarter).
-  - Returns a structured intent object.
-
-7.4 Visualization Module (ChartDisplay.jsx):
-  - Renders the correct Recharts component based on the intent object.
-  - Supported chart types: Bar, Line, Area, Pie, Donut, Scatter,
-    Histogram, Box Plot, Heatmap (as a styled grid).
-  - Applies custom_color from the session context.
-  - Interactive: tooltips, legends, responsive containers.
-  - Export: download as PNG/JPG using html2canvas.
-
-7.5 Chat & Context Module (Chat.jsx + SESSION_CONTEXT in main.py):
-  - Users interact through a chat-style interface.
-  - Each prompt is sent to /query with the current file_id.
-  - Server maintains SESSION_CONTEXT (per file_id): chart_type, x_column,
-    y_column, found_columns, custom_color for follow-up aware responses.
-  - Bot responses include reasoning, auto-generated insights (e.g., trend
-    percentage change, highest value, correlation), and error suggestions.
-
-7.6 Export & Reporting Module:
-  - Individual chart export as PNG/JPG via html2canvas (client-side).
-  - Full-session PDF report generation using jsPDF + html2canvas.
-
-7.7 Theme Module (ThemeContext.jsx + Sidebar.jsx):
-  - Global dark/light mode toggle exposed via React Context.
-  - All components respond to the theme, styled with Tailwind dark: classes.
-
-8. DATA FLOW
---------------------------------------------------------------------------------
-  Upload Flow:
-  [User] -> (Drag/Drop File) -> [Upload.jsx] -> POST /upload ->
-  [data_processor.py: clean + score] -> [/data/ saved] ->
-  [DataPreview.jsx: show stats + preview]
-
-  Query Flow:
-  [User] -> (Type Prompt) -> [Chat.jsx] -> POST /query ->
-  [nlp_engine.py: parse_prompt()] -> (Query Pandas DataFrame) ->
-  [Return JSON: intent + chart_data + insights] ->
-  [ChartDisplay.jsx: Render Recharts] -> [User views chart]
-
-  Follow-up Flow:
-  [User] -> ("Change it to blue") -> POST /query ->
-  [nlp_engine.py: check SESSION_CONTEXT] -> (Reuse columns/chart_type) ->
-  [Return same chart with custom_color="blue"] -> [ChartDisplay.jsx updates]
-
-9. TESTING
---------------------------------------------------------------------------------
-  - Unit Testing:       Individual function validation (e.g., clean_dataset,
-                        calculate_quality_score, parse_prompt).
-  - Integration Testing:Client-Server API tests (HTTP 200 / 404 / 500 codes).
-  - System Testing:     End-to-end: file upload -> preview -> prompt -> chart.
-  - UAT:                Verify charts match user's intent; test edge cases
-                        like misspelled columns, ambiguous prompts,
-                        follow-up color/type changes.
-
-10. HOW TO RUN THE PROJECT
---------------------------------------------------------------------------------
-  Prerequisites: Python 3.8+, Node.js 18+, npm
-
-  Terminal 1 — Backend Server:
-    cd d:\projects\finalyearproject\server
-    pip install -r requirements.txt
-    uvicorn main:app --reload
-    -> Server starts at: http://127.0.0.1:8000
-
-  Terminal 2 — Frontend Client:
-    cd d:\projects\finalyearproject\client
-    npm install
-    npm run dev
-    -> App opens at: http://localhost:5173
-
-  Note: Run pip install and npm install only on the first run or after
-  dependency changes.
-
-11. CONCLUSION
---------------------------------------------------------------------------------
-"GVS DataNova" successfully simplifies data analysis by combining a robust Python
-FastAPI backend (with fuzzy NLP parsing and Pandas processing) with a reactive
-React frontend (featuring Recharts visualizations and a chat-style interface).
-The context memory system enables multi-turn conversations, allowing users to
-iteratively refine their charts. It reduces time-to-insight significantly
-compared to manual plotting or dashboard tools.
-
-12. FUTURE SCOPE
---------------------------------------------------------------------------------
-  - Integration of LLMs (OpenAI GPT, Google Gemini) for advanced,
-    context-aware natural language reasoning beyond fuzzy keyword matching.
-  - Support for more file formats: JSON, SQL databases (SQLite, PostgreSQL).
-  - Automated insight generation: textual narrative summaries of findings.
-  - User Accounts and cloud storage for persistent, named projects.
-  - Real-time collaboration features for team-based analysis.
-  - Dashboard builder: drag-and-drop multi-chart layout creation.
-  - Predictive analytics: forecasting charts (ARIMA, simple regression).
+1. Ensure you have Docker, Python, and Node.js installed.
+2. Start the database: run "docker compose up -d" in the main folder.
+3. Start the server:
+   - Go to the 'server' folder.
+   - Run "pip install -r requirements.txt".
+   - Run "python main.py".
+4. Open the app:
+   - Go to your browser and type: http://localhost:8000
 
 ================================================================================
-END OF DOCUMENT
+END OF DOCUMENT - GVS DataNova v2.0
 ================================================================================

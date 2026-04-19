@@ -1,9 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --primary: #10b981;
+  --primary-glow: rgba(16, 185, 129, 0.4);
+  --secondary: #06b6d4;
+  --accent: #6366f1;
+  --bg-dark: #020617;
+  --bg-card: rgba(15, 23, 42, 0.6);
+  --border-card: rgba(255, 255, 255, 0.08);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
 @layer base {
   body {
-    @apply bg-light text-dark font-sans;
+    @apply bg-[#020617] text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200;
   }
+
+  * {
+    @apply border-slate-800/60;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-slate-900/40 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+  }
+
+  .premium-gradient {
+    @apply bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent;
+  }
+
+  .btn-primary {
+    @apply relative overflow-hidden bg-emerald-500 px-6 py-2.5 rounded-xl font-bold text-slate-950 transition-all duration-300 hover:bg-emerald-400 hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+}
+
+@layer utilities {
+  .scrollbar-premium {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(16, 185, 129, 0.2) transparent;
+  }
+  
+  .scrollbar-premium::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  
+  .scrollbar-premium::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .scrollbar-premium::-webkit-scrollbar-thumb {
+    @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
+  }
+}
+
+/* Custom Animations */
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.glow-background {
+  @apply fixed inset-0 -z-10 overflow-hidden;
+}
+
+.glow-orb {
+  @apply absolute rounded-full blur-[120px] opacity-20 dark:opacity-30 mix-blend-screen animate-pulse;
 }
