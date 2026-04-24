@@ -33,3 +33,9 @@ def set_session_memory(file_id, context):
 
 def get_session_memory(file_id):
     return cache_client.get(f"ctx_{file_id}")
+
+def get_json_cache(key):
+    return cache_client.get(f"json_{key}")
+
+def set_json_cache(key, value):
+    return cache_client.set(f"json_{key}", value)

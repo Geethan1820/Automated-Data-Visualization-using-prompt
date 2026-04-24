@@ -71,8 +71,8 @@ const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSessi
 
   return (
     <>
-      <aside className="flex h-full w-24 shrink-0 flex-col border-r border-white/5 bg-[#020617] text-slate-100 shadow-[20px_0_80px_rgba(0,0,0,0.5)] sm:w-80 z-20">
-        <div className="border-b border-white/5 px-3 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-8 bg-slate-900/20">
+      <aside className="flex h-full w-24 shrink-0 flex-col border-r border-[var(--border-main)] bg-[var(--bg-sidebar)] text-[var(--text-main)] shadow-[var(--sidebar-shadow)] sm:w-80 z-20 transition-all duration-300">
+        <div className="border-b border-[var(--border-main)] px-3 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-8 bg-[var(--bg-sidebar-accent)]">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-float">
@@ -82,13 +82,13 @@ const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSessi
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500/80">
                   Data Processor
                 </p>
-                <h1 className="mt-1 text-2xl font-black tracking-tight text-white italic">DATANOVA</h1>
+                <h1 className="mt-1 text-2xl font-black tracking-tight text-[var(--text-main)] italic">DATANOVA</h1>
               </div>
             </div>
           </div>
 
           <div className="mt-6 rounded-2xl bg-emerald-500/5 p-4 border border-emerald-500/10">
-            <p className="hidden text-[11px] leading-relaxed text-slate-400 sm:block mb-4">
+            <p className="hidden text-[11px] leading-relaxed text-[var(--text-muted)] sm:block mb-4">
               Harness AI to transform raw datasets into beautiful, interactive visual intelligence.
             </p>
             <motion.button
@@ -104,7 +104,7 @@ const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSessi
         </div>
 
         <div className="px-3 pt-6 sm:px-6">
-          <p className="hidden px-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 sm:block mb-4">Core Workspace</p>
+          <p className="hidden px-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] sm:block mb-4">Core Workspace</p>
           <nav className="space-y-1">
             <SidebarItem
               icon={<LayoutDashboard size={18} />}
@@ -136,10 +136,10 @@ const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSessi
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-8 sm:px-6 sm:pb-6">
           <div className="mb-4 flex items-center justify-between px-2">
-            <p className="hidden text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 sm:block">Archive</p>
+            <p className="hidden text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] sm:block">Archive</p>
             <button
               onClick={fetchSessions}
-              className="rounded-lg p-1.5 text-slate-600 transition hover:bg-emerald-500/10 hover:text-emerald-400"
+              className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-emerald-500/10 hover:text-emerald-400"
             >
               <RefreshCw size={14} className={loadingHistory ? 'animate-spin' : ''} />
             </button>
@@ -147,7 +147,7 @@ const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSessi
 
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-premium">
             {sessions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-600">
+              <div className="rounded-2xl border border-dashed border-[var(--border-main)] bg-white/[0.02] px-4 py-8 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                 Empty Archive
               </div>
             ) : (
@@ -160,23 +160,23 @@ const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSessi
                   className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${
                     currentFile?.file_id === session.id
                       ? 'border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
-                      : 'border-white/5 bg-slate-900/20 hover:border-emerald-500/20 hover:bg-emerald-500/5'
+                      : 'border-[var(--border-main)] bg-[var(--bg-sidebar-accent)] hover:border-emerald-500/20 hover:bg-emerald-500/5'
                   }`}
                 >
                   <button onClick={() => onLoadSession?.(session)} className="w-full px-4 py-4 text-left">
                     <div className="flex items-start gap-4">
                       <div className={`mt-0.5 rounded-xl p-2.5 transition-colors ${
-                        currentFile?.file_id === session.id ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-500 group-hover:text-emerald-400'
+                        currentFile?.file_id === session.id ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[var(--bg-app)] text-[var(--text-muted)] group-hover:text-emerald-400'
                       }`}>
                         <FileText size={16} />
                       </div>
                       <div className="hidden min-w-0 flex-1 sm:block">
                         <p className={`truncate text-sm font-bold tracking-tight ${
-                          currentFile?.file_id === session.id ? 'text-emerald-400' : 'text-slate-200 group-hover:text-white'
+                          currentFile?.file_id === session.id ? 'text-emerald-400' : 'text-[var(--text-main)] group-hover:text-emerald-500'
                         }`}>{session.filename}</p>
-                        <div className="mt-2 flex items-center gap-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        <div className="mt-2 flex items-center gap-3 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
                           <span className="flex items-center gap-1.5"><Clock3 size={10} /> {formatDate(session.uploaded_at)}</span>
-                          <span className="h-1 w-1 rounded-full bg-slate-700" />
+                          <span className="h-1 w-1 rounded-full bg-[var(--border-main)]" />
                           <span className="text-emerald-500/70">{session.quality_score}% Quality</span>
                         </div>
                       </div>
@@ -200,23 +200,23 @@ const Sidebar = ({ setView, currentFile, onNewChat, onLoadSession, onDeleteSessi
           </div>
         </div>
 
-        <div className="border-t border-white/5 space-y-2 p-4 sm:p-6 bg-slate-900/20">
-          <div className="hidden rounded-2xl border border-white/5 bg-slate-900/50 px-4 py-3 sm:block">
+        <div className="border-t border-[var(--border-main)] space-y-2 p-4 sm:p-6 bg-[var(--bg-sidebar-accent)]">
+          <div className="hidden rounded-2xl border border-[var(--border-main)] bg-[var(--bg-sidebar)] px-4 py-3 sm:block">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/60 mb-1">OPERATOR</p>
-            <p className="truncate text-sm font-black text-white">{user?.username ?? 'GUEST'}</p>
+            <p className="truncate text-sm font-black text-[var(--text-main)]">{user?.username ?? 'GUEST'}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => logout()}
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-slate-900/50 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20"
+              className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border-main)] bg-[var(--bg-sidebar)] py-3 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] transition hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20"
             >
               <LogOut size={14} />
               <span>EXIT</span>
             </button>
             <button
               onClick={toggleTheme}
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-slate-900/50 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/20"
+              className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border-main)] bg-[var(--bg-sidebar)] py-3 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] transition hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/20"
             >
               {theme === 'light' ? <Sun size={14} /> : <Moon size={14} />}
               <span>{theme === 'light' ? 'DAY' : 'NT'}</span>
@@ -275,14 +275,14 @@ const SidebarItem = ({ icon, label, hint, active, onClick }) => (
     onClick={onClick}
     className={`flex w-full items-center justify-center gap-3 rounded-2xl px-3 py-3 text-left transition sm:justify-start ${
       active
-        ? 'border border-indigo-500/35 bg-indigo-500/10 text-white'
-        : 'border border-transparent text-slate-300 hover:bg-white/5'
+        ? 'border border-indigo-500/35 bg-indigo-500/10 text-emerald-500'
+        : 'border border-transparent text-[var(--text-muted)] hover:bg-white/5'
     }`}
   >
-    <span className={`rounded-xl p-2 ${active ? 'bg-indigo-400/25 text-indigo-100' : 'bg-white/5 text-slate-400'}`}>{icon}</span>
+    <span className={`rounded-xl p-2 ${active ? 'bg-indigo-400/25 text-emerald-500' : 'bg-[var(--bg-app)] text-[var(--text-muted)]'}`}>{icon}</span>
     <span className="hidden min-w-0 flex-1 sm:block">
       <span className="block text-sm font-semibold">{label}</span>
-      <span className="block text-xs text-slate-400">{hint}</span>
+      <span className="block text-xs opacity-70">{hint}</span>
     </span>
   </button>
 );

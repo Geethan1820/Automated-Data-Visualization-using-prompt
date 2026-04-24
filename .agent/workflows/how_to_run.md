@@ -1,22 +1,35 @@
----
-description: How to run the client and server
----
-# How to Run the Project
+# How to Run the Project (Demo-Ready)
 
-## 1. Start the Server (Backend)
-Open a terminal and run:
-```powershell
-cd server
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-The server will start at `http://127.0.0.1:8000`.
+The most reliable way to run the complete DataNova stack (Frontend, Backend, Database, Redis) is using **Docker Compose**. This ensures everything works perfectly for your demo.
 
-## 2. Start the Client (Frontend)
-Open a new terminal and run:
+## 🚀 The Docker Way (Recommended)
+Open a terminal in the project root folder and run:
+
 ```powershell
-cd client
-npm install
-npm run dev
+# Start everything in the background
+docker compose up -d
 ```
-The client will start at `http://localhost:5173` (or similar).
+
+### Access URLs:
+- **Main App**: [http://localhost](http://localhost) (Port 80)
+- **Backend Docs**: [http://localhost:8001/docs](http://localhost:8001/docs)
+- **pgAdmin**: [http://localhost:5052](http://localhost:5052) (Login: `admin@local.test` / `admin`)
+
+---
+
+## 🛠️ Maintenance Commands
+
+**To see logs (Check if AI is working):**
+```powershell
+docker logs datanova-backend --tail 50 -f
+```
+
+**To stop the project:**
+```powershell
+docker compose down
+```
+
+**To reset and rebuild (If you change code):**
+```powershell
+docker compose up -d --build
+```

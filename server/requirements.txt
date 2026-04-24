@@ -15,3 +15,6 @@ asyncpg
 python-dotenv
 google-generativeai
 pyarrow
+pydantic-settings
+python-json-logger
+openai

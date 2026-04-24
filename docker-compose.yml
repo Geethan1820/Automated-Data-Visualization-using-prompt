@@ -1,22 +1,64 @@
-# PostgreSQL + pgAdmin 4 for GVS DataNova (optional local stack).
-# Start: docker compose up -d
-# Then set DATABASE_URL in .env to:
-#   postgresql+asyncpg://postgres:postgres@localhost:5432/datanova
-# Register server in pgAdmin: Host localhost, Port 5432, User postgres, Password postgres, DB datanova.
-
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: datanova-postgres
+    container_name: datanova-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: datanova
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-datanova}
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - datanova_pg:/var/lib/postgresql/data
+    networks:
+      - datanova-net
+
+  redis:
+    image: redis/redis-stack-server:latest
+    container_name: datanova-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    networks:
+      - datanova-net
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: datanova-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-datanova}
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./server:/app
+      - /app/data
+    networks:
+      - datanova-net
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: "/api"
+    container_name: datanova-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - datanova-net
 
   pgadmin:
     image: dpage/pgadmin4:8
@@ -26,9 +68,15 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@local.test
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "5050:80"
+      - "5052:80"
     depends_on:
-      - postgres
+      - db
+    networks:
+      - datanova-net
+
+networks:
+  datanova-net:
+    driver: bridge
 
 volumes:
   datanova_pg:

@@ -9,19 +9,51 @@
   --primary-glow: rgba(16, 185, 129, 0.4);
   --secondary: #06b6d4;
   --accent: #6366f1;
-  --bg-dark: #020617;
+  
+  /* Shared transition */
+  --theme-transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* DARK MODE (Default/Current vibe) */
+.dark, :root:not(.light) {
+  --bg-app: #020617;
+  --bg-sidebar: #020617;
+  --bg-sidebar-accent: rgba(15, 23, 42, 0.4);
   --bg-card: rgba(15, 23, 42, 0.6);
-  --border-card: rgba(255, 255, 255, 0.08);
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  --bg-input: #020617;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-main: rgba(255, 255, 255, 0.05);
+  --border-focus: rgba(16, 185, 129, 0.3);
+  --sidebar-shadow: 20px 0 80px rgba(0,0,0,0.5);
+  --panel-blur: blur(40px);
+}
+
+/* LIGHT MODE (Clean, Premium look) */
+.light {
+  --bg-app: #f1f5f9;
+  --bg-sidebar: #ffffff;
+  --bg-sidebar-accent: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-input: #ffffff;
+  --text-main: #020617;
+  --text-muted: #475569;
+  --border-main: rgba(0, 0, 0, 0.1);
+  --border-focus: rgba(16, 185, 129, 0.4);
+  --sidebar-shadow: 10px 0 40px rgba(0,0,0,0.05);
+  --panel-blur: blur(20px);
 }
 
 @layer base {
   body {
-    @apply bg-[#020617] text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200;
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    transition: var(--theme-transition);
+    @apply antialiased selection:bg-emerald-500/30 selection:text-emerald-200;
   }
 
   * {
-    @apply border-slate-800/60;
+    border-color: var(--border-main);
   }
 }
 

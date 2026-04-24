@@ -19,6 +19,7 @@ import os
 import shutil
 import uuid
 import time
+import hashlib
 
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -31,16 +32,27 @@ from modules import cache
 from modules.insight_engine import generate_insights
 from modules.ml_engine import detect_ml_intent, run_ml
 
+import logging
+from config import settings
+
+# Configure Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("DataNova")
+
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "datasight-secret-key-change-in-production")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+SECRET_KEY = settings.JWT_SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
-UPLOAD_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "data"))
+UPLOAD_DIR = settings.DATA_DIR
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-app = FastAPI(title="GVS DataNova API", version="2.0.0")
+app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,16 +66,28 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login", auto_error=True)
 
 # ─── STARTUP ──────────────────────────────────────────────────────────────────
 
+import logging
+
+# Configure Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("DataNova")
+
+# ─── STARTUP ──────────────────────────────────────────────────────────────────
+
 @app.on_event("startup")
 async def on_startup():
     await db.init_db()
     key = os.environ.get("GEMINI_API_KEY", "")
     key_status = f"LOADED ({key[:5]}...)" if key else "MISSING"
-    print("================================================================")
-    print("[GVS DataNova] Backend v2.0 started.")
-    print(f"[GVS DataNova] AI API Status: {key_status}")
-    print("[GVS DataNova] Server URL: http://localhost:8000")
-    print("================================================================")
+    logger.info("================================================================")
+    logger.info("Backend v2.0 started.")
+    logger.info(f"AI API Status: {key_status}")
+    logger.info("Server URL: http://localhost:8000")
+    logger.info("================================================================")
 
 # Session logic now uses in-memory caching via the 'cache' module.
 
@@ -148,16 +172,23 @@ async def delete_file(file_id: str, current_user: dict = Depends(get_current_use
     file_record = await db.get_file(file_id)
     if not file_record or file_record.get("user_id") != current_user["id"]:
         raise HTTPException(404, "File not found.")
-    for path in [file_record["filepath"], file_record["filepath"].replace("_clean.csv", "")]:
+    paths_to_remove = {file_record["filepath"]}
+    raw_path = file_record["filepath"].replace("_clean.csv", ".csv")
+    if "_clean.csv" not in file_record["filepath"]:
+         raw_path = file_record["filepath"] + ".raw" 
+    paths_to_remove.add(raw_path)
+
+    for path in paths_to_remove:
         try:
             if os.path.exists(path):
                 os.remove(path)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to delete file at {path}: {e}")
+    
     cache.clear_df_cache(file_id)
     deleted = await db.delete_file(file_id, current_user["id"])
     if not deleted:
-        raise HTTPException(404, "File not found.")
+        raise HTTPException(404, "File not found in database.")
     return {"success": True, "file_id": file_id}
 
 
@@ -279,82 +310,128 @@ async def get_suggestions(file_id: str, current_user: dict = Depends(get_current
 
 
 def _merge_chart_memory(
-    prompt: str, intent: Dict[str, Any], memory: Optional[Dict[str, Any]]
+    prompt: str, intent: Dict[str, Any], columns: List[str], memory: Optional[Dict[str, Any]]
 ) -> Dict[str, Any]:
     """
-    Reuse last chart columns when the user sends a follow-up (e.g. only 'change to line chart').
-    Session memory is keyed by file_id in cache.
+    Intelligent merging of previous context with new intent.
+    - Preserves columns if user only asks for chart change.
+    - Prioritizes new columns if detected in prompt.
     """
     if not memory:
         return intent
+    
     out = {**intent}
+    pl = prompt.lower()
+    
+    # 1. Detect if the user is explicitly asking for NEW columns
+    # We look at the AI intent's x_axis and y_axes. If they were filled by the AI
+    # from the current prompt, we should probably respect them.
+    # However, if the AI returned the SAME columns as memory, it might be a follow-up.
+    
+    # 2. Check for explicit chart type change signals
+    is_chart_switch = any(s in pl for s in ["change to", "switch to", "make it", "as a", "to a", "instead of"])
+    
+    # 3. Inheritance logic
     mem_x = memory.get("x_column")
-    mem_ys = memory.get("y_columns") or []
-    if not mem_ys and memory.get("y_column"):
-        mem_ys = [memory["y_column"]]
+    mem_ys = memory.get("y_columns") or ([memory.get("y_column")] if memory.get("y_column") else [])
     mem_ys = [c for c in mem_ys if c]
 
-    xa = out.get("x_axis") or out.get("x_column")
-    ya = out.get("y_axes") or []
-    if not ya and out.get("y_axis"):
-        ya = [out.get("y_axis")]
-    ya = [c for c in ya if c]
+    curr_x = out.get("x_axis") or out.get("x_column")
+    curr_ys = out.get("y_axes") or ([out.get("y_axis")] if out.get("y_axis") else [])
+    curr_ys = [c for c in curr_ys if c]
 
-    ya_was_empty = not ya
-    x_was_empty = not xa
-
-    if mem_x and x_was_empty:
+    # If the user didn't name new columns but asked for a chart change, inherit
+    if not curr_ys and mem_ys:
         out["x_axis"] = mem_x
-        out["x_column"] = mem_x
-    if mem_ys and ya_was_empty:
         out["y_axes"] = mem_ys
         out["y_axis"] = mem_ys[0]
+        out["inherited"] = True
 
-    if not out.get("aggregation") and memory.get("aggregation"):
-        out["aggregation"] = memory["aggregation"]
+    # 4. Explicit Chart Type Forcing
+    if any(k in pl for k in ("line chart", "trend", "over time")): out["chart_type"] = "line"
+    elif any(k in pl for k in ("bar chart", "comparison", "compare")): out["chart_type"] = "bar"
+    elif any(k in pl for k in ("pie chart", "share", "composition")): out["chart_type"] = "pie"
+    elif any(k in pl for k in ("scatter", "vs", "correlation")): out["chart_type"] = "scatter"
+    elif any(k in pl for k in ("area", "filled")): out["chart_type"] = "area"
 
-    # If we had to restore Y from memory, treat as chart-only follow-up and lock chart_type from wording
-    if ya_was_empty and mem_ys:
-        pl = prompt.lower()
-        if any(k in pl for k in ("line chart", "line graph", "to line", "as a line")):
-            out["chart_type"] = "line"
-        elif any(k in pl for k in ("bar chart", "to bar", "as a bar")):
-            out["chart_type"] = "bar"
-        elif any(k in pl for k in ("pie chart", "to pie", "as a pie")):
-            out["chart_type"] = "pie"
-        elif any(k in pl for k in ("area chart", "to area", "as an area")):
-            out["chart_type"] = "area"
-        elif "scatter" in pl:
-            out["chart_type"] = "scatter"
+    return out
 
-    # User explicitly asked to change chart type; LLM may have left the previous chart_type
-    pl_all = prompt.lower()
-    wants_chart_change = memory and any(
-        v in pl_all
-        for v in (
-            "change",
-            "switch",
-            "make it",
-            "convert",
-            "instead",
-            "turn into",
-            "to line",
-            "to bar",
-            "to pie",
-            "to area",
-        )
-    )
-    if wants_chart_change:
-        if any(k in pl_all for k in ("line chart", "line graph", "to line", "as a line")):
-            out["chart_type"] = "line"
-        elif any(k in pl_all for k in ("bar chart", "to bar", "as a bar")):
-            out["chart_type"] = "bar"
-        elif any(k in pl_all for k in ("pie chart", "to pie", "as a pie")):
-            out["chart_type"] = "pie"
-        elif any(k in pl_all for k in ("area chart", "to area", "as an area")):
-            out["chart_type"] = "area"
-        elif "scatter" in pl_all:
-            out["chart_type"] = "scatter"
+
+def _validate_and_fix_intent(intent: Dict[str, Any], df: pd.DataFrame, col_meta: List[Dict]) -> Dict[str, Any]:
+    """
+    Hallucination Guard & Auto-Correction Logic.
+    Ensures columns exist and chart types are mathematically sound for the data types.
+    """
+    from thefuzz import process as fuzz_process
+    
+    out = {**intent}
+    cols = df.columns.tolist()
+    meta_map = {m["name"]: m for m in col_meta}
+
+    def find_best_match(target: str):
+        if not target or target in cols: return target
+        match, score = fuzz_process.extractOne(target, cols)
+        return match if score > 80 else None
+
+    # 1. Validate Columns (The Hallucination Guard)
+    x_raw = out.get("x_axis") or out.get("x_column")
+    x_fixed = find_best_match(x_raw)
+    
+    y_raws = out.get("y_axes") or ([out.get("y_axis")] if out.get("y_axis") else [])
+    y_fixed = [find_best_match(y) for y in y_raws if find_best_match(y)]
+
+    # Fallback if AI totally failed to pick valid columns
+    if not x_fixed and cols: x_fixed = cols[0]
+    if not y_fixed:
+        numeric_cols = [m["name"] for m in col_meta if m["is_numeric"]]
+        y_fixed = [numeric_cols[0]] if numeric_cols else ([cols[1]] if len(cols) > 1 else [cols[0]])
+
+    out["x_axis"] = x_fixed
+    out["y_axes"] = y_fixed
+    out["y_axis"] = y_fixed[0] if y_fixed else None
+
+    # 2. Mathematical Soundness (Auto-Correction)
+    chart_type = out.get("chart_type", "bar")
+    x_meta = meta_map.get(x_fixed)
+    y_meta = meta_map.get(y_fixed[0]) if y_fixed else None
+
+    # Line chart requires a temporal or ordinal progression
+    if chart_type == "line" and x_meta and not x_meta["is_datetime"]:
+        date_cols = [m["name"] for m in col_meta if m["is_datetime"]]
+        if date_cols and x_fixed not in date_cols:
+            # Auto-correction: If user asked for line but x is not date, and date exists, swap!
+            out["x_axis"] = date_cols[0]
+            out["reasoning"] = (out.get("reasoning", "") + 
+                                f" [Auto-Correct] Swapped X-axis to '{date_cols[0]}' for better line chart visualization.")
+        else:
+            # If no date column, line chart is riskier, maybe bar is better if categories are few
+            if x_meta.get("unique_count", 100) < 15:
+                out["chart_type"] = "bar"
+                out["reasoning"] = (out.get("reasoning", "") + 
+                                    " [Auto-Correct] Switched from Line to Bar as X-axis is categorical.")
+
+    # Scatter Plot requires Numeric vs Numeric
+    if chart_type == "scatter":
+        if x_meta and not x_meta["is_numeric"]:
+            # Check if any numeric column is available to swap
+            num_cols = [m["name"] for m in col_meta if m["is_numeric"]]
+            if num_cols:
+                out["x_axis"] = num_cols[0]
+            else:
+                out["chart_type"] = "bar"
+
+    # Pie Chart Cardinality Check
+    if chart_type == "pie" and x_meta and x_meta.get("unique_count", 100) > 12:
+        out["chart_type"] = "bar"
+        out["reasoning"] = (out.get("reasoning", "") + 
+                            " [Auto-Correct] Switched from Pie to Bar due to high cardinality of categories.")
+
+    # Aggregation Safety
+    if out.get("aggregation") in ["sum", "avg"]:
+        if y_meta and not y_meta["is_numeric"]:
+            out["aggregation"] = "count"
+            out["reasoning"] = (out.get("reasoning", "") + 
+                                " [Auto-Correct] Switched aggregation to 'count' as Y-axis is non-numeric.")
 
     return out
 
@@ -399,18 +476,49 @@ async def process_query(
     await db.log_user_query(user_id, prompt)
     df = metadata["df"]
 
-    # Last successful chart for this file (follow-ups like "change to line chart")
+    # 1.2. Load Session Memory (Last successful chart context)
     session_memory = cache.get_session_memory(file_id)
+
+    # 1.5. Query Caching (Saves Quota for Demo)
+    # Generate a unique key for this query on this dataset
+    query_key = f"qcache_{file_id}_{hashlib.md5(prompt.strip().lower().encode()).hexdigest()}"
+    cached_intent = cache.cache_client.get(query_key)
     
-    # 2. Prepare Sample for LLM
-    # We send columns and 3 sample rows to give the LLM context.
-    sample_data = df.head(3).replace({np.nan: None}).to_dict(orient="records")
+    if cached_intent:
+        print(f"[AI CACHE] Instant Hit for: {prompt}")
+        intent = cached_intent
+    else:
+        # 2. Prepare Sample for LLM
+        # We send columns and 3 sample rows to give the LLM context.
+        sample_data = df.head(3).replace({np.nan: None}).to_dict(orient="records")
+        col_meta = detect_column_types(df)
+        
+        # 3. Call AI Engine (LLM) — include session memory and rich type metadata
+        intent = ai.parse_with_llm(
+            prompt, metadata["columns"], sample_data, type_info=col_meta, previous_context=session_memory
+        )
+        
+        # Cache the valid intent (before merging memory which changes per turn)
+        if intent and not intent.get("error"):
+            cache.cache_client.set(query_key, intent)
     
-    # 3. Call AI Engine (LLM) — include session memory so follow-ups inherit columns
-    intent = ai.parse_with_llm(
-        prompt, metadata["columns"], sample_data, previous_context=session_memory
-    )
-    intent = _merge_chart_memory(prompt, intent, session_memory)
+    # 4. Intent Merging (Context Preservation)
+    intent = _merge_chart_memory(prompt, intent, metadata["columns"], session_memory)
+    
+    # 5. Intent Validation (Hallucination Guard & Auto-Correction)
+    intent = _validate_and_fix_intent(intent, df, col_meta)
+    
+    # 6. Branch based on Intent Type (Text vs. Visualization)
+    if intent.get("intent_type") == "text_answer":
+        elapsed = round(time.time() - t_start, 3)
+        return {
+            "intent": intent,
+            "is_text": True,
+            "answer": intent.get("answer", "I couldn't generate a text response, but here is your data summary."),
+            "insights": intent.get("insights", []),
+            "response_time": elapsed,
+            "error": False,
+        }
     
     # --- POLITE REFUSAL FOR MISSING COLUMNS ---
     missing = intent.get("missing_columns", [])
@@ -539,6 +647,7 @@ async def process_query(
             "chat_id": chat_id,
             "response_time": elapsed,
             "error": False,
+            "is_text": False,
         }
 
     except Exception as e:
@@ -594,22 +703,27 @@ def _generate_chart_data(
             grouped = df.groupby(x_col)[numeric_y]
             grouped = getattr(grouped, agg_fn)().reset_index()
             
-            # Sort by first Y column descending for better viz
-            grouped = grouped.sort_values(numeric_y[0], ascending=False)
+            # Intelligent Sorting Selection
+            is_time_series = any(k in x_col.lower() for k in ("date", "time", "year", "month", "day", "created"))
             
-            if chart_type in ("bar", "pie", "donut") and len(grouped) > 30:
-                grouped = grouped.head(30)
-            
-            # For time series, sort by X
-            if chart_type in ("line", "area"):
+            if is_time_series or chart_type in ("line", "area"):
                 try:
                     df_temp = grouped.copy()
-                    df_temp[x_col] = pd.to_datetime(df_temp[x_col])
-                    grouped = df_temp.sort_values(x_col)
+                    # Try converting to datetime to sort correctly
+                    df_temp[x_col] = pd.to_datetime(df_temp[x_col], errors='coerce')
+                    grouped = df_temp.sort_values(x_col).dropna(subset=[x_col])
+                    # Restore string format for JSON response
                     grouped[x_col] = grouped[x_col].dt.strftime("%Y-%m-%d")
                 except:
-                    pass
-
+                    # Fallback to alphanumeric sort for X
+                    grouped = grouped.sort_values(x_col)
+            elif chart_type in ("bar", "pie", "donut"):
+                # Sort by the aggregate volume (sum of all numeric Y columns) descending
+                grouped["_total_volume"] = grouped[numeric_y].sum(axis=1)
+                grouped = grouped.sort_values("_total_volume", ascending=False).drop(columns=["_total_volume"])
+                if len(grouped) > 30:
+                    grouped = grouped.head(30)
+            
             chart_data = grouped.replace({np.nan: None}).to_dict(orient="records")
         else:
             # Fallback to count if non-numeric
@@ -818,14 +932,22 @@ if os.path.exists(STATIC_DIR):
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         """Catch-all: serve index.html for any non-API route (SPA routing)."""
-        # Exclude common API-like paths from SPA routing if they don't exist
-        if full_path.startswith("api/") or full_path in ["login", "signup", "upload", "query"]:
-             raise HTTPException(status_code=404, detail="API route not found")
-             
-        file_path = os.path.join(STATIC_DIR, full_path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+        # If the request looks like a file (has an extension), check if it exists
+        if "." in full_path:
+            file_path = os.path.join(STATIC_DIR, full_path)
+            if os.path.isfile(file_path):
+                return FileResponse(file_path)
+        
+        # Otherwise, always serve index.html to allow React Router to handle the URL
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        
+        # If frontend is not built, provide a helpful error
+        raise HTTPException(
+            status_code=404, 
+            detail="Frontend build not found. Run 'cd client; npm run build' or access via http://localhost:5173"
+        )
 else:
     print(f"⚠️  WARNING: Pre-built Frontend (client/dist) NOT FOUND at {STATIC_DIR}")
     print(f"👉 To use the integrated UI, run 'cd client; npm run build' first.")

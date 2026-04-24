@@ -15,16 +15,16 @@ from sqlalchemy import select, delete
 from passlib.hash import pbkdf2_sha256 as hasher
 from dotenv import load_dotenv
 
-# Load environment variables from .env
-load_dotenv()
-
+from config import settings
 from models import Base, User, FileRecord, ChatRecord, ContextRecord, QueryLog
 
 # --- DATABASE CONFIG ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 _DEFAULT_SQLITE = f"sqlite+aiosqlite:///{DB_PATH}"
-DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_SQLITE)
+
+# Priority: Environment variable > settings object > local sqlite
+DATABASE_URL = os.environ.get("DATABASE_URL") or settings.DATABASE_URL or _DEFAULT_SQLITE
 
 # Create async engine (PostgreSQL: postgresql+asyncpg://user:pass@host:5432/dbname)
 engine = create_async_engine(DATABASE_URL, echo=False)

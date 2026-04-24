@@ -29,10 +29,10 @@ function EmptyDashboardState({ onGoUpload }) {
               Unified Intelligence
             </div>
             <div className="space-y-4">
-              <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl italic leading-tight">
+              <h2 className="text-4xl font-black tracking-tight text-[var(--text-main)] sm:text-5xl italic leading-tight">
                 READY FOR <span className="text-emerald-400">ANALYSIS.</span>
               </h2>
-              <p className="max-w-xl text-sm leading-8 text-slate-400 font-medium">
+              <p className="max-w-xl text-sm leading-8 text-[var(--text-muted)] font-medium">
                 Initialize your workspace by uploading a dataset. Our AI engine will automatically scan for trends, quality scores, and interactive visualizations.
               </p>
             </div>
@@ -147,7 +147,7 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#020617] text-slate-100 font-jakarta selection:bg-emerald-500/30">
+    <div className="flex h-screen overflow-hidden bg-[var(--bg-app)] text-[var(--text-main)] font-jakarta selection:bg-emerald-500/30 transition-colors duration-300">
       {/* Background elements */}
       <div className="glow-background">
         <div className="glow-orb w-[800px] h-[800px] bg-emerald-500/5 -top-40 -left-40" />
@@ -164,7 +164,7 @@ function AppContent() {
       />
 
       <main className="min-w-0 flex-1 overflow-hidden p-4 lg:p-6 lg:pl-2">
-        <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-[3rem] border border-white/5 bg-slate-900/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] backdrop-blur-md relative">
+        <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-[3rem] border border-[var(--border-main)] bg-[var(--bg-card)] shadow-[0_20px_80px_rgba(0,0,0,0.1)] backdrop-blur-md relative transition-all duration-300">
           <AnimatePresence mode="wait">
             <motion.div
               key={view + (currentFile?.file_id || '')}

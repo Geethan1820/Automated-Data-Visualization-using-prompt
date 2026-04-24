@@ -106,6 +106,15 @@ const Chat = ({ currentFile, initialMessages = null }) => {
                     dashboardCharts: data.dashboard_charts,
                     insights: data.insights || [],
                 }]);
+            } else if (data.is_text) {
+                setMessages(prev => [...prev, {
+                    role: 'bot',
+                    content: data.answer || 'Here is the information you requested.',
+                    isTextOnly: true,
+                    insights: data.insights || [],
+                    responseTime: data.response_time,
+                    reasoning: data.intent?.reasoning,
+                }]);
             } else {
                 const isML = data.is_ml;
                 const mlResult = data.ml_result;
@@ -369,15 +378,15 @@ const Chat = ({ currentFile, initialMessages = null }) => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#020617] relative">
+        <div className="flex flex-col h-full bg-[var(--bg-app)] relative transition-colors duration-300">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 bg-slate-900/40 relative z-10 backdrop-blur-md">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border-main)] bg-[var(--bg-card)] relative z-10 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                         <BarChart2 size={20} className="text-slate-950" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-black text-white uppercase tracking-wider">{currentFile?.filename}</h2>
+                        <h2 className="text-sm font-black text-[var(--text-main)] uppercase tracking-wider">{currentFile?.filename}</h2>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
                                 {currentFile?.stats?.rows?.toLocaleString()} Records
@@ -393,7 +402,7 @@ const Chat = ({ currentFile, initialMessages = null }) => {
                     whileTap={{ scale: 0.95 }}
                     onClick={exportPDF}
                     disabled={isExporting}
-                    className="flex items-center gap-2.5 bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/20 text-slate-400 hover:text-emerald-400 text-[10px] font-black uppercase tracking-widest px-5 py-3 rounded-xl transition-all disabled:opacity-60"
+                    className="flex items-center gap-2.5 bg-[var(--bg-sidebar-accent)] hover:bg-emerald-500/10 border border-[var(--border-main)] hover:border-emerald-500/20 text-[var(--text-muted)] hover:text-emerald-400 text-[10px] font-black uppercase tracking-widest px-5 py-3 rounded-xl transition-all disabled:opacity-60"
                 >
                     {isExporting
                         ? <><Loader2 size={13} className="animate-spin" /> EXPORTING…</>
@@ -435,7 +444,7 @@ const Chat = ({ currentFile, initialMessages = null }) => {
                                         ? 'bg-emerald-500 text-slate-950 rounded-tr-sm shadow-[0_10px_30px_rgba(16,185,129,0.1)]'
                                         : msg.isError
                                             ? 'bg-red-500/10 text-red-400 border border-red-500/20 rounded-tl-sm'
-                                            : 'bg-slate-900/40 text-slate-200 border border-white/5 rounded-tl-sm backdrop-blur-md'
+                                            : 'bg-[var(--bg-sidebar-accent)] text-[var(--text-main)] border border-[var(--border-main)] rounded-tl-sm backdrop-blur-md'
                                         }`}>
                                         {msg.isML && (
                                             <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2 px-2 py-1 bg-emerald-500/10 rounded-lg inline-flex">
@@ -540,10 +549,10 @@ const Chat = ({ currentFile, initialMessages = null }) => {
                         animate={{ opacity: 1, y: 0 }}
                         className="flex items-start gap-4"
                     >
-                        <div className="w-9 h-9 rounded-[14px] bg-slate-900 border border-white/5 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-[14px] bg-[var(--bg-sidebar)] border border-[var(--border-main)] flex items-center justify-center">
                             <Bot size={18} className="text-emerald-500 animate-pulse" />
                         </div>
-                        <div className="bg-slate-900/40 border border-white/5 backdrop-blur-md rounded-3xl rounded-tl-sm px-6 py-4 shadow-xl">
+                        <div className="bg-[var(--bg-sidebar-accent)] border border-[var(--border-main)] backdrop-blur-md rounded-3xl rounded-tl-sm px-6 py-4 shadow-xl">
                             <div className="flex items-center gap-3 text-slate-400 text-[12px] font-bold uppercase tracking-widest">
                                 <Loader2 size={16} className="animate-spin text-emerald-500" />
                                 <span>Scanning Data Patterns...</span>
@@ -584,7 +593,7 @@ const Chat = ({ currentFile, initialMessages = null }) => {
             )}
 
             {/* Input */}
-            <div className="p-6 bg-slate-900/40 border-t border-white/5 shrink-0 relative z-10 backdrop-blur-xl">
+            <div className="p-6 bg-[var(--bg-sidebar-accent)] border-t border-[var(--border-main)] shrink-0 relative z-10 backdrop-blur-xl">
                 <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="flex gap-3 max-w-5xl mx-auto">
                     <div className="relative flex-1 group">
                         <div className="absolute inset-0 bg-emerald-500/5 rounded-[2rem] blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
@@ -593,7 +602,7 @@ const Chat = ({ currentFile, initialMessages = null }) => {
                             onChange={e => setInput(e.target.value)}
                             placeholder="INITIALIZE NEURAL QUERY..."
                             disabled={isLoading}
-                            className="w-full text-xs font-bold bg-slate-950 border border-white/5 rounded-[1.5rem] px-6 py-4.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500/40 text-white placeholder-slate-600 tracking-widest transition-all disabled:opacity-50 relative z-10"
+                            className="w-full text-xs font-bold bg-[var(--bg-app)] border border-[var(--border-main)] rounded-[1.5rem] px-6 py-4.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500/40 text-[var(--text-main)] placeholder-slate-600 tracking-widest transition-all disabled:opacity-50 relative z-10"
                         />
                     </div>
                     <motion.button

@@ -9,7 +9,8 @@ import {
 } from 'recharts';
 import { 
     Download, ZoomIn, ZoomOut, BarChart2, Info, Settings, 
-    X, Palette, Layout, Maximize2, Check, Eye, Type, AlignLeft, RefreshCcw, Database
+    X, Palette, Layout, Maximize2, Check, Eye, Type, AlignLeft, RefreshCcw, Database,
+    TrendingUp, PieChart as PieIcon, ScanSearch, AreaChart as AreaIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
@@ -25,11 +26,11 @@ const PALETTES = {
 
 const CHART_TYPES = [
     { id: 'bar', label: 'Bar', icon: BarChart2 },
-    { id: 'line', label: 'Line', icon: Layout },
-    { id: 'area', label: 'Area', icon: Layout },
-    { id: 'pie', label: 'Pie', icon: Layout },
-    { id: 'donut', label: 'Donut', icon: Layout },
-    { id: 'scatter', label: 'Scatter', icon: Layout },
+    { id: 'line', label: 'Line', icon: TrendingUp },
+    { id: 'area', label: 'Area', icon: AreaIcon },
+    { id: 'pie', label: 'Pie', icon: PieIcon },
+    { id: 'donut', label: 'Donut', icon: PieIcon },
+    { id: 'scatter', label: 'Scatter', icon: ScanSearch },
 ];
 
 const AGG_TYPES = [
@@ -141,6 +142,12 @@ const ChartDisplay = ({
     const [legendPos, setLegendPos] = useState('bottom');
     const [showXTitle, setShowXTitle] = useState(true);
     const [showYTitle, setShowYTitle] = useState(true);
+
+    // Sync local state when external props change (Fixes "Apply Changes" sync bug)
+    React.useEffect(() => {
+        if (initialData) setCurrentData(initialData);
+        if (initialType) setChartType(initialType);
+    }, [initialData, initialType]);
 
     const activePalette = PALETTES[paletteKey];
     

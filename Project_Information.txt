@@ -1,49 +1,52 @@
 ================================================================================
-PROJECT TITLE: GVS DataNova (Intelligent Data Analytics)
+🎓 FINAL YEAR PROJECT: GVS DataNova 🚀
 ================================================================================
 
 1. WHAT IS THIS PROJECT?
 --------------------------------------------------------------------------------
-DataNova is a smart tool that helps you understand data files (like Excel or CSV) 
-without needing to be a math or coding expert. You just upload your file and 
-chat with the AI to get answers and charts instantly.
+DataNova is a smart tool that helps you understand data files (like Excel or 
+CSV) without needing to be an expert. You just upload your file and "chat" 
+with the AI to get answers and charts instantly.
 
-2. WHY WAS IT BUILT? (PROBLEM STATEMENT)
+2. WHY WAS IT BUILT? (THE PROBLEM)
 --------------------------------------------------------------------------------
-Traditional data tools are too hard for many people. Most users struggle to:
-- Clean messy data.
+Traditional data tools are hard to use. Most people struggle to:
+- Understand complex numbers.
 - Create professional charts quickly.
-- Understand what the numbers are actually saying.
+- Write formulas to find trends.
 
 DataNova solves this by using "Natural Language Processing"—meaning you can 
-talk to your data like you're talking to a friend.
+talk to your data like you're talking to a friend!
 
 3. KEY FEATURES
 --------------------------------------------------------------------------------
-- 🤖 SMART CHAT: Ask questions like "Show me sales by region" to get an answer.
+- 🤖 SMART AI CHAT: Ask questions in plain English to get instant answers.
 - 📊 AUTO-VISUALS: Beautiful, interactive charts appear automatically.
-- 💾 SAVE & RESTORE: Your work is saved. Log in any time to see your old chats.
-- 🔒 AUDIT LOGS: The system keeps track of all questions asked for security.
-- 💎 PREMIUM THEME: High-end "Midnight Emerald" visual design.
+- 🔮 SMART PREDICTIONS: The AI can guess future trends using math (Forecast).
+- 💾 HISTORY: Your work is saved. Log in any time to see your old chats.
+- 🔒 SECURITY: Secure login system with a record of all activities.
+- 💎 PREMIUM DESIGN: A high-end "Midnight Emerald" look for a pro feel.
 
-4. TECHNOLOGY USED
+4. TECHNOLOGY USED (THE STACK)
 --------------------------------------------------------------------------------
-- VISUALS: React (Modern JavaScript framework)
-- BRAIN: Python & FastAPI
-- AI: Google Gemini (Advanced Language Model)
-- STORAGE: PostgreSQL Database
+- VISUALS: React (Modern web technology for the user interface).
+- BRAIN: Python & FastAPI (Handles all the heavy logic).
+- AI ENGINE: Google Gemini (The advanced AI that understands your language).
+- STORAGE: PostgreSQL (A secure database to remember your information).
 
 5. HOW TO RUN THE PROJECT (SIMPLE STEPS)
 --------------------------------------------------------------------------------
-1. Ensure you have Docker, Python, and Node.js installed.
-2. Start the database: run "docker compose up -d" in the main folder.
-3. Start the server:
+1. Start the Database:
+   - Run "docker compose up -d" in the main project folder.
+
+2. Start the Server:
    - Go to the 'server' folder.
    - Run "pip install -r requirements.txt".
    - Run "python main.py".
-4. Open the app:
-   - Go to your browser and type: http://localhost:8000
+
+3. Open the App:
+   - Open your browser and go to: http://localhost:8000
 
 ================================================================================
-END OF DOCUMENT - GVS DataNova v2.0
+GVS DataNova - Bridging the gap between AI and Data Analytics!
 ================================================================================
